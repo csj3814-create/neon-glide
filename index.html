@@ -86,6 +86,24 @@
     font-size: 34px; font-weight: 800; color: #fff;
     text-shadow: 0 0 16px #00f0ff;
   }
+  #mult-badge {
+    font-size: 20px !important;
+    color: #ffe14d !important;
+    text-shadow: 0 0 12px rgba(255, 225, 77, 0.9) !important;
+    margin-left: 10px;
+    align-self: flex-start;
+  }
+  #mult-badge.fever {
+    color: #ff2df7 !important;
+    text-shadow: 0 0 16px #ff2df7 !important;
+    animation: feverPulse 0.5s infinite alternate;
+  }
+  @keyframes feverPulse { from { opacity: 0.75; } to { opacity: 1; } }
+  #new-best {
+    font-size: 22px;
+    animation: feverPulse 0.4s infinite alternate;
+  }
+  #new-best.hidden, #rank-hint.hidden { display: none; }
   #toast {
     position: fixed; bottom: 34px; left: 50%;
     transform: translateX(-50%) translateY(20px);
@@ -144,7 +162,7 @@
 </head>
 <body>
 <canvas id="game"></canvas>
-<div id="hud"><span id="score-live"></span></div>
+<div id="hud"><span id="score-live"></span><span id="mult-badge"></span></div>
 <div id="mute">🔊</div>
 <select id="lang"></select>
 
@@ -153,13 +171,16 @@
   <div class="seed-tag" id="seed-tag-start"></div>
   <p class="sub" id="howto"></p>
   <div class="best" id="best-start"></div>
+  <div class="best" id="streak"></div>
   <button id="btn-start"></button>
 </div>
 
 <div class="overlay hidden" id="over-screen">
   <div class="sub" id="over-label"></div>
+  <div class="best hidden" id="new-best"></div>
   <div class="big-score" id="final-score">0</div>
   <div class="best" id="best-over"></div>
+  <div class="sub" id="rank-hint"></div>
   <div class="seed-tag" id="seed-tag-over"></div>
   <div id="lb-box" class="hidden">
     <div class="lb-title" id="lb-title"></div>
@@ -175,6 +196,19 @@
 
 <div id="toast"></div>
 
+<script>
+// CrazyGames SDK — 플랫폼에 올라갔을 때만 의미 있음, 로드 실패 시 조용히 무시
+(function () {
+  var s = document.createElement('script');
+  s.src = 'https://sdk.crazygames.com/crazygames-sdk-v3.js';
+  s.async = true;
+  s.onload = function () {
+    try { window.CrazyGames.SDK.init().catch(function () {}); } catch (e) {}
+  };
+  s.onerror = function () {};
+  document.head.appendChild(s);
+})();
+</script>
 <script>
 (() => {
   'use strict';
@@ -209,63 +243,72 @@
       start: "START TODAY'S RUN", over: 'GAME OVER', share: '📤 Share score', retry: 'Retry',
       copied: 'Score copied — challenge a friend! 📋',
       shareText: '🛸 NEON GLIDE {date}\nI scored {score} on today\'s course!\nBeat me on the exact same course 👉 {url}',
-      lbTitle: '🏆 Global Top 10', yourName: 'Your name', submit: 'Submit', saved: 'Saved!', loading: 'Loading…', lbError: 'Leaderboard offline' },
+      lbTitle: '🏆 Global Top 10', yourName: 'Your name', submit: 'Submit', saved: 'Saved!', loading: 'Loading…', lbError: 'Leaderboard offline',
+      newBest: '🏆 NEW BEST!', rankIn: '🔥 That is a global TOP 10 score — submit it!', rankNeed: '{n} pts to the global TOP 10', streak: '🔥 {n}-day streak!' },
     ko: { name: '한국어',
       howto: '누르고 있으면 상승, 떼면 하강.<br>네온 게이트를 통과하며 최대한 멀리 활공하세요.<br>⭐ 별은 +1점 · 움직이는 게이트 주의 · 🔴 레이저는 항상 통로가 열려 있어요!<br><b>오늘의 코스는 전 세계 모두 동일합니다.</b>',
       todayCourse: '오늘의 코스', dailyCourse: '데일리 코스', best: '오늘의 최고 기록',
       start: '오늘의 코스 시작', over: 'GAME OVER', share: '📤 점수 공유하기', retry: '다시 도전',
       copied: '점수가 복사됐어요 — 친구에게 도전장을! 📋',
       shareText: '🛸 NEON GLIDE {date}\n오늘의 코스에서 {score}점 기록!\n같은 코스에서 나를 이겨보세요 👉 {url}',
-      lbTitle: '🏆 글로벌 Top 10', yourName: '이름', submit: '등록', saved: '저장 완료!', loading: '불러오는 중…', lbError: '리더보드 오프라인' },
+      lbTitle: '🏆 글로벌 Top 10', yourName: '이름', submit: '등록', saved: '저장 완료!', loading: '불러오는 중…', lbError: '리더보드 오프라인',
+      newBest: '🏆 신기록!', rankIn: '🔥 글로벌 TOP 10 진입 점수예요 — 등록하세요!', rankNeed: '글로벌 TOP 10까지 {n}점', streak: '🔥 {n}일 연속 플레이!' },
     ja: { name: '日本語',
       howto: '押すと上昇、離すと下降。<br>ネオンゲートを抜けてどこまでも滑空しよう。<br>⭐ 星は+1点 · 動くゲートに注意 · 🔴 レーザーには必ず通り道がある!<br><b>今日のコースは世界中みんな同じ。</b>',
       todayCourse: '今日のコース', dailyCourse: 'デイリーコース', best: '今日のベスト',
       start: '今日のコースをプレイ', over: 'GAME OVER', share: '📤 スコアをシェア', retry: 'リトライ',
       copied: 'スコアをコピーしました — 友達に挑戦状を! 📋',
       shareText: '🛸 NEON GLIDE {date}\n今日のコースで{score}点!\n同じコースで勝負しよう 👉 {url}',
-      lbTitle: '🏆 世界Top 10', yourName: '名前', submit: '登録', saved: '保存しました!', loading: '読み込み中…', lbError: 'ランキングはオフライン' },
+      lbTitle: '🏆 世界Top 10', yourName: '名前', submit: '登録', saved: '保存しました!', loading: '読み込み中…', lbError: 'ランキングはオフライン',
+      newBest: '🏆 自己ベスト!', rankIn: '🔥 世界TOP 10入りのスコア — 登録しよう!', rankNeed: '世界TOP 10まであと{n}点', streak: '🔥 {n}日連続プレイ!' },
     zh: { name: '中文',
       howto: '按住上升，松开下降。<br>穿过霓虹之门，滑翔得越远越好。<br>⭐ 星星+1分 · 小心移动的门 · 🔴 激光总会留出通道!<br><b>今天全世界玩的是同一条赛道。</b>',
       todayCourse: '今日赛道', dailyCourse: '每日赛道', best: '今日最佳',
       start: '开始今日挑战', over: 'GAME OVER', share: '📤 分享成绩', retry: '再试一次',
       copied: '成绩已复制 — 向朋友发起挑战! 📋',
       shareText: '🛸 NEON GLIDE {date}\n我在今日赛道拿了{score}分!\n来同一条赛道击败我 👉 {url}',
-      lbTitle: '🏆 全球Top 10', yourName: '你的名字', submit: '提交', saved: '已保存!', loading: '加载中…', lbError: '排行榜离线' },
+      lbTitle: '🏆 全球Top 10', yourName: '你的名字', submit: '提交', saved: '已保存!', loading: '加载中…', lbError: '排行榜离线',
+      newBest: '🏆 新纪录!', rankIn: '🔥 这是全球TOP 10的分数 — 快提交!', rankNeed: '距全球TOP 10还差{n}分', streak: '🔥 连续玩了{n}天!' },
     es: { name: 'Español',
       howto: 'Mantén pulsado para subir, suelta para bajar.<br>Planea entre las puertas de neón lo más lejos posible.<br>⭐ Estrellas +1 · cuidado con las puertas móviles · 🔴 ¡los láseres siempre dejan un hueco!<br><b>Hoy todo el mundo juega el mismo recorrido.</b>',
       todayCourse: 'Recorrido de hoy', dailyCourse: 'recorrido diario', best: 'Mejor de hoy',
       start: 'JUGAR EL RECORRIDO DE HOY', over: 'GAME OVER', share: '📤 Compartir puntuación', retry: 'Reintentar',
       copied: '¡Puntuación copiada — reta a un amigo! 📋',
       shareText: '🛸 NEON GLIDE {date}\n¡Hice {score} puntos en el recorrido de hoy!\nSupérame en el mismo recorrido 👉 {url}',
-      lbTitle: '🏆 Top 10 Global', yourName: 'Tu nombre', submit: 'Enviar', saved: '¡Guardado!', loading: 'Cargando…', lbError: 'Ranking sin conexión' },
+      lbTitle: '🏆 Top 10 Global', yourName: 'Tu nombre', submit: 'Enviar', saved: '¡Guardado!', loading: 'Cargando…', lbError: 'Ranking sin conexión',
+      newBest: '🏆 ¡NUEVO RÉCORD!', rankIn: '🔥 ¡Puntuación de TOP 10 global — envíala!', rankNeed: '{n} pts para el TOP 10 global', streak: '🔥 ¡Racha de {n} días!' },
     pt: { name: 'Português',
       howto: 'Segure para subir, solte para descer.<br>Plane pelas portas de néon o mais longe possível.<br>⭐ Estrelas +1 · cuidado com portas móveis · 🔴 lasers sempre deixam passagem!<br><b>Hoje o mundo inteiro joga o mesmo percurso.</b>',
       todayCourse: 'Percurso de hoje', dailyCourse: 'percurso diário', best: 'Melhor de hoje',
       start: 'JOGAR O PERCURSO DE HOJE', over: 'GAME OVER', share: '📤 Compartilhar pontuação', retry: 'Tentar de novo',
       copied: 'Pontuação copiada — desafie um amigo! 📋',
       shareText: '🛸 NEON GLIDE {date}\nFiz {score} pontos no percurso de hoje!\nMe supere no mesmo percurso 👉 {url}',
-      lbTitle: '🏆 Top 10 Global', yourName: 'Seu nome', submit: 'Enviar', saved: 'Salvo!', loading: 'Carregando…', lbError: 'Ranking offline' },
+      lbTitle: '🏆 Top 10 Global', yourName: 'Seu nome', submit: 'Enviar', saved: 'Salvo!', loading: 'Carregando…', lbError: 'Ranking offline',
+      newBest: '🏆 NOVO RECORDE!', rankIn: '🔥 Pontuação de TOP 10 global — envie!', rankNeed: '{n} pts para o TOP 10 global', streak: '🔥 Sequência de {n} dias!' },
     fr: { name: 'Français',
       howto: 'Maintenez pour monter, relâchez pour descendre.<br>Planez à travers les portes néon le plus loin possible.<br>⭐ Étoiles +1 · gare aux portes mobiles · 🔴 les lasers laissent toujours un passage !<br><b>Aujourd\'hui, le monde entier joue le même parcours.</b>',
       todayCourse: "Parcours du jour", dailyCourse: 'parcours quotidien', best: "Record du jour",
       start: 'JOUER LE PARCOURS DU JOUR', over: 'GAME OVER', share: '📤 Partager le score', retry: 'Réessayer',
       copied: 'Score copié — défiez un ami ! 📋',
       shareText: '🛸 NEON GLIDE {date}\nJ\'ai fait {score} points sur le parcours du jour !\nBats-moi sur le même parcours 👉 {url}',
-      lbTitle: '🏆 Top 10 Mondial', yourName: 'Votre nom', submit: 'Envoyer', saved: 'Enregistré !', loading: 'Chargement…', lbError: 'Classement hors ligne' },
+      lbTitle: '🏆 Top 10 Mondial', yourName: 'Votre nom', submit: 'Envoyer', saved: 'Enregistré !', loading: 'Chargement…', lbError: 'Classement hors ligne',
+      newBest: '🏆 NOUVEAU RECORD !', rankIn: '🔥 Score digne du TOP 10 mondial — envoyez-le !', rankNeed: '{n} pts avant le TOP 10 mondial', streak: '🔥 Série de {n} jours !' },
     de: { name: 'Deutsch',
       howto: 'Halten zum Steigen, loslassen zum Sinken.<br>Gleite so weit wie möglich durch die Neon-Tore.<br>⭐ Sterne +1 · Achtung, bewegliche Tore · 🔴 Laser lassen immer eine Lücke!<br><b>Heute spielt die ganze Welt denselben Kurs.</b>',
       todayCourse: 'Heutiger Kurs', dailyCourse: 'Tageskurs', best: 'Tagesbestwert',
       start: 'HEUTIGEN KURS SPIELEN', over: 'GAME OVER', share: '📤 Score teilen', retry: 'Nochmal',
       copied: 'Score kopiert — fordere einen Freund heraus! 📋',
       shareText: '🛸 NEON GLIDE {date}\nIch habe {score} Punkte auf dem heutigen Kurs!\nSchlag mich auf demselben Kurs 👉 {url}',
-      lbTitle: '🏆 Globale Top 10', yourName: 'Dein Name', submit: 'Senden', saved: 'Gespeichert!', loading: 'Laden…', lbError: 'Rangliste offline' },
+      lbTitle: '🏆 Globale Top 10', yourName: 'Dein Name', submit: 'Senden', saved: 'Gespeichert!', loading: 'Laden…', lbError: 'Rangliste offline',
+      newBest: '🏆 NEUER REKORD!', rankIn: '🔥 Das ist ein globaler TOP-10-Score — einreichen!', rankNeed: 'Noch {n} Punkte bis zu den globalen TOP 10', streak: '🔥 {n}-Tage-Serie!' },
     ru: { name: 'Русский',
       howto: 'Держите — подъём, отпустите — спуск.<br>Пролетайте сквозь неоновые ворота как можно дальше.<br>⭐ Звёзды +1 · берегитесь движущихся ворот · 🔴 лазеры всегда оставляют проход!<br><b>Сегодня весь мир играет на одной трассе.</b>',
       todayCourse: 'Трасса дня', dailyCourse: 'ежедневная трасса', best: 'Лучший за день',
       start: 'ИГРАТЬ ТРАССУ ДНЯ', over: 'GAME OVER', share: '📤 Поделиться счётом', retry: 'Ещё раз',
       copied: 'Счёт скопирован — вызовите друга! 📋',
       shareText: '🛸 NEON GLIDE {date}\nЯ набрал {score} на трассе дня!\nПобей меня на той же трассе 👉 {url}',
-      lbTitle: '🏆 Мировой Топ-10', yourName: 'Ваше имя', submit: 'Отправить', saved: 'Сохранено!', loading: 'Загрузка…', lbError: 'Рейтинг офлайн' }
+      lbTitle: '🏆 Мировой Топ-10', yourName: 'Ваше имя', submit: 'Отправить', saved: 'Сохранено!', loading: 'Загрузка…', lbError: 'Рейтинг офлайн',
+      newBest: '🏆 НОВЫЙ РЕКОРД!', rankIn: '🔥 Это результат мирового ТОП-10 — отправьте его!', rankNeed: '{n} очков до мирового ТОП-10', streak: '🔥 Серия: {n} дн.!' }
   };
   let lang = localStorage.getItem('ng-lang');
   if (!lang || !I18N[lang]) {
@@ -301,7 +344,17 @@
     document.getElementById('lb-send').textContent = T('submit');
     const savedBest = localStorage.getItem(BEST_KEY);
     document.getElementById('best-start').textContent = savedBest ? `${T('best')}: ${savedBest}` : '';
+    document.getElementById('streak').textContent = streakN > 1 ? T('streak').replace('{n}', streakN) : '';
   }
+
+  // ---------- 출석 스트릭 ----------
+  let streakN = 1;
+  try {
+    const sd = JSON.parse(localStorage.getItem('ng-streak') || '{}');
+    const yest = new Date(Date.now() + 9 * 3600 * 1000 - 86400000).toISOString().slice(0, 10);
+    streakN = sd.last === dateStr ? (sd.n || 1) : (sd.last === yest ? (sd.n || 1) + 1 : 1);
+    localStorage.setItem('ng-streak', JSON.stringify({ last: dateStr, n: streakN }));
+  } catch (_) {}
 
   // ---------- 캔버스 ----------
   const canvas = document.getElementById('game');
@@ -321,10 +374,21 @@
   const NEONS = ['#00f0ff', '#ff2df7', '#ffe14d', '#39ff88', '#6a5bff'];
   const BEST_KEY = 'neonglide-best-' + dateStr;
   let state = 'idle';            // idle | play | over
-  let rng, gates = [], particles = [], coins = [];
+  let rng, gates = [], particles = [], coins = [], popups = [];
   let stars = seededStars(mulberry32(hashStr('STARS:' + dateStr)));
   let player, speed, score, dist, holding, elapsed;
+  let gatesPassed = 0, mult = 1;
   let shakeT = 0;
+
+  function updateHud() {
+    document.getElementById('score-live').textContent = score;
+    const badge = document.getElementById('mult-badge');
+    badge.textContent = mult > 1 ? '×' + mult : '';
+    badge.classList.toggle('fever', mult >= 5);
+  }
+  function popup(x, y, txt, color) {
+    popups.push({ x, y, txt, color, life: 0.9 });
+  }
 
   function seededStars(seedRng) {
     const arr = [];
@@ -345,9 +409,12 @@
     gates = [];
     particles = [];
     coins = [];
+    popups = [];
     player = { x: 0, y: H / 2, vy: 0, trail: [] };
     speed = 200;                 // px/s
-    score = +(new URLSearchParams(location.search).get('debug')) || 0;
+    gatesPassed = +(new URLSearchParams(location.search).get('debug')) || 0;
+    score = gatesPassed * 10;
+    mult = 1 + Math.min(9, (gatesPassed / 5) | 0);
     dist = 0; elapsed = 0;
     holding = false;
     let gx = W + 200;
@@ -363,7 +430,7 @@
 
   function makeGate(x) {
     const margin = 90;
-    const gapH = Math.max(160, 340 - score * 4);     // 진행할수록 좁아짐
+    const gapH = Math.max(160, 340 - gatesPassed * 6);   // 진행할수록 좁아짐
     const cy = margin + gapH / 2 + rng() * (H - margin * 2 - gapH);
     const g = {
       x, cy, gapH,
@@ -374,10 +441,10 @@
       segTop: rng() < 0.5                            // 레이저가 틈의 위/아래 어느 쪽을 막는지
     };
     const roll = rng();
-    if (score >= 4 && roll < 0.35) {
+    if (gatesPassed >= 4 && roll < 0.35) {
       g.type = 'mover';
-      g.amp = 40 + Math.min(80, score * 2);
-    } else if (score >= 8 && roll < 0.62) {
+      g.amp = 40 + Math.min(80, gatesPassed * 3);
+    } else if (gatesPassed >= 8 && roll < 0.62) {
       g.type = 'laser';
     }
     return g;
@@ -486,11 +553,12 @@
     if (b) tone(b[0], b[1], 'sawtooth', 0.11, { lp: 900, lpEnd: 220, q: 2 });       // 펑키 베이스
     const st = STAB[s];
     if (st) for (const f of st) tone(f, 0.16, 'sawtooth', 0.016, { lp: 1500 });     // 코드 스탭
-    if (state === 'play' && LEAD[s]) tone(LEAD[s], 0.13, 'triangle', 0.035, { echo: true }); // 리드 (딜레이)
+    if (state === 'play' && LEAD[s]) tone(LEAD[s], 0.13, 'triangle', mult >= 5 ? 0.06 : 0.035, { echo: true }); // 리드 (피버 시 강화)
     musicStep++;
   }
-  function passSfx() { tone(520 + Math.min(500, score * 14), 0.09, 'sine', 0.14, { slideTo: 820 + Math.min(500, score * 14) }); }
+  function passSfx() { tone(520 + Math.min(500, gatesPassed * 18), 0.09, 'sine', 0.14, { slideTo: 820 + Math.min(500, gatesPassed * 18) }); }
   function coinSfx() { tone(1318.5, 0.07, 'square', 0.07); setTimeout(() => tone(1760, 0.1, 'square', 0.07), 60); }
+  function multSfx() { tone(880, 0.09, 'triangle', 0.09); setTimeout(() => tone(1174.7, 0.09, 'triangle', 0.09), 70); setTimeout(() => tone(1760, 0.14, 'triangle', 0.09), 140); }
   function dieSfx() { tone(320, 0.5, 'sawtooth', 0.22, { slideTo: 50 }); noiseHit(0.35, 0.2, 'highpass', 700); }
 
   const muteBtn = document.getElementById('mute');
@@ -519,8 +587,12 @@
     const r = await fetch(`${LB_URL}/scores.json?orderBy="s"&limitToLast=100`);
     if (!r.ok) throw new Error('lb fetch failed');
     const data = await r.json() || {};
-    return Object.values(data)
-      .filter(e => e && typeof e.s === 'number' && e.n)
+    const bestByName = {};
+    for (const e of Object.values(data)) {
+      if (!e || typeof e.s !== 'number' || !e.n) continue;
+      if (!bestByName[e.n] || e.s > bestByName[e.n].s) bestByName[e.n] = e;
+    }
+    return Object.values(bestByName)
       .sort((a, b) => b.s - a.s)
       .slice(0, 10);
   }
@@ -542,12 +614,29 @@
     if (!LB_URL) return;
     lbBox.classList.remove('hidden');
     lbList.textContent = T('loading');
-    try { renderLb(await lbTop10(), localStorage.getItem('ng-name')); }
+    try {
+      const rows = await lbTop10();
+      renderLb(rows, localStorage.getItem('ng-name'));
+      // 재도전 유도: TOP 10 진입 가능 여부 표시
+      const hint = document.getElementById('rank-hint');
+      if (score > 0) {
+        if (rows.length < 10 || score > rows[rows.length - 1].s) hint.textContent = T('rankIn');
+        else hint.textContent = T('rankNeed').replace('{n}', rows[9].s - score + 1);
+      }
+    }
     catch (_) { lbList.textContent = T('lbError'); }
+  }
+  let submittedThisRun = false;
+  function resetSubmitUI() {
+    submittedThisRun = false;
+    const btn = document.getElementById('lb-send');
+    btn.disabled = false;
+    btn.textContent = T('submit');
+    lbName.disabled = false;
   }
   document.getElementById('lb-send').addEventListener('click', async e => {
     e.stopPropagation();
-    if (!LB_URL) return;
+    if (!LB_URL || submittedThisRun) return;
     const name = lbName.value.trim().slice(0, 12);
     if (!name || !score) return;
     localStorage.setItem('ng-name', name);
@@ -559,10 +648,14 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ n: name, s: score, d: dateStr, t: Date.now() })
       });
+      submittedThisRun = true;                 // 한 판에 한 번만 제출 가능
       btn.textContent = T('saved');
+      lbName.disabled = true;
       await refreshLb();
-    } catch (_) { lbList.textContent = T('lbError'); }
-    setTimeout(() => { btn.textContent = T('submit'); btn.disabled = false; }, 1500);
+    } catch (_) {
+      lbList.textContent = T('lbError');
+      setTimeout(() => { btn.textContent = T('submit'); btn.disabled = false; }, 1500);
+    }
   });
 
   // ---------- 입력 ----------
@@ -617,10 +710,35 @@
       }
       if (!g.passed && g.x < px) {
         g.passed = true;
-        score++;
+        gatesPassed++;
+        const gain = 10 * mult;
+        score += gain;
+        popup(px + 24, player.y - 26, '+' + gain, g.color);
+        // 아슬아슬 통과 보너스
+        const edge = Math.min(player.y - (cy - halfGap), (cy + halfGap) - player.y);
+        if (edge < 32) {
+          const b = 5 * mult;
+          score += b;
+          popup(px + 24, player.y - 56, 'CLOSE! +' + b, '#ff2df7');
+        }
+        // 꺼진 레이저 구간을 뚫고 통과 = 스레딩 보너스
+        if (g.type === 'laser') {
+          const [la, lb] = laserSeg(g, cy);
+          if (player.y > la && player.y < lb) {
+            const b = 15 * mult;
+            score += b;
+            popup(px + 24, player.y - 86, 'THREAD! +' + b, '#ff2d55');
+          }
+        }
+        // 5게이트마다 배율 상승
+        if (gatesPassed % 5 === 0 && mult < 10) {
+          mult++;
+          popup(px, player.y - 116, '×' + mult, '#ffe14d');
+          multSfx();
+        }
         passSfx();
         burst(px, player.y, g.color, 14);
-        document.getElementById('score-live').textContent = score;
+        updateHud();
       }
     }
     if (gates[0].x < -60) {
@@ -634,12 +752,18 @@
     // 별 수집
     for (const c of coins) {
       c.x -= speed * dt;
-      if (!c.taken && Math.hypot(c.x - px, c.y - player.y) < 26) {
+      if (!c.taken && Math.hypot(c.x - px, c.y - player.y) < 28) {
         c.taken = true;
-        score++;
+        const gain = 25 * mult;
+        score += gain;
+        popup(c.x, c.y - 22, '★ +' + gain, '#ffe14d');
+        if (mult < 10) {                     // 별 = 배율 부스터
+          mult++;
+          popup(c.x, c.y - 52, '×' + mult, '#ffe14d');
+        }
         coinSfx();
         burst(c.x, c.y, '#ffe14d', 12);
-        document.getElementById('score-live').textContent = score;
+        updateHud();
       }
     }
     while (coins.length && coins[0].x < -40) coins.shift();
@@ -649,6 +773,12 @@
       const p = particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
       if (p.life <= 0) particles.splice(i, 1);
+    }
+    // 점수 팝업
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const p = popups[i];
+      p.y -= 65 * dt; p.x -= speed * dt * 0.25; p.life -= dt;
+      if (p.life <= 0) popups.splice(i, 1);
     }
     if (shakeT > 0) shakeT -= dt;
   }
@@ -665,11 +795,20 @@
     dieSfx();
     shakeT = 0.35;
     burst(player.x, player.y, '#ff2d55', 40);
-    const best = Math.max(score, +(localStorage.getItem(BEST_KEY) || 0));
+    const prevBest = +(localStorage.getItem(BEST_KEY) || 0);
+    const isNewBest = score > prevBest && score > 0;
+    const best = Math.max(score, prevBest);
     localStorage.setItem(BEST_KEY, best);
     document.getElementById('final-score').textContent = score;
     document.getElementById('best-over').textContent = `${T('best')}: ${best}`;
+    document.getElementById('new-best').textContent = T('newBest');
+    document.getElementById('new-best').classList.toggle('hidden', !isNewBest);
+    document.getElementById('rank-hint').textContent = '';
     document.getElementById('score-live').textContent = '';
+    document.getElementById('mult-badge').textContent = '';
+    try { if (isNewBest && window.CrazyGames) CrazyGames.SDK.game.happytime(); } catch (_) {}
+    try { if (window.CrazyGames) CrazyGames.SDK.game.gameplayStop(); } catch (_) {}
+    resetSubmitUI();
     setTimeout(() => {
       document.getElementById('over-screen').classList.remove('hidden');
       refreshLb();
@@ -796,12 +935,26 @@
     }
     ctx.globalAlpha = 1;
 
+    // 점수 팝업
+    if (popups.length) {
+      ctx.font = '800 19px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      for (const p of popups) {
+        ctx.globalAlpha = Math.min(1, p.life * 1.8);
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.txt, p.x, p.y);
+      }
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'start';
+    }
+
     // 플레이어 + 트레일
     if (state === 'play' || (state === 'over' && shakeT > 0)) {
+      const fever = mult >= 5;
       for (let i = player.trail.length - 1; i > 0; i--) {
         const p = player.trail[i];
         ctx.globalAlpha = (1 - i / player.trail.length) * 0.5;
-        ctx.fillStyle = '#00f0ff';
+        ctx.fillStyle = fever ? `hsl(${(t * 400 + i * 26) % 360}, 100%, 62%)` : '#00f0ff';
         ctx.beginPath(); ctx.arc(p.x, p.y, 8 * (1 - i / player.trail.length) + 1, 0, 7); ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -843,7 +996,8 @@
     state = 'play';
     startScreen.classList.add('hidden');
     overScreen.classList.add('hidden');
-    document.getElementById('score-live').textContent = score;
+    updateHud();
+    try { if (window.CrazyGames) CrazyGames.SDK.game.gameplayStart(); } catch (_) {}
   }
   document.getElementById('btn-start').addEventListener('click', e => { e.stopPropagation(); startGame(); });
   document.getElementById('btn-retry').addEventListener('click', e => { e.stopPropagation(); startGame(); });
