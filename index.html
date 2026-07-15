@@ -1,10 +1,15 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>NEON GLIDE — 데일리 챌린지</title>
-<meta name="description" content="매일 바뀌는 네온 코스를 활공하라. 오늘의 코스는 전 세계 모두에게 동일합니다.">
+<title>NEON GLIDE — Daily Challenge</title>
+<meta name="description" content="One-button neon glider. Everyone in the world gets the same course every day. How far can you glide?">
+<meta property="og:title" content="NEON GLIDE — Daily Challenge">
+<meta property="og:description" content="One-button neon glider. Same course worldwide every day. Beat your friends!">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://csj3814-create.github.io/neon-glide/">
+<meta name="twitter:card" content="summary">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -20,13 +25,14 @@
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    gap: 14px;
+    gap: 13px;
     background: rgba(5, 1, 15, 0.72);
     backdrop-filter: blur(6px);
     color: #e8e6ff;
     text-align: center;
     z-index: 10;
     padding: 24px;
+    overflow-y: auto;
   }
   .overlay.hidden { display: none; }
   h1 {
@@ -97,28 +103,74 @@
     font-size: 24px; cursor: pointer; opacity: 0.75;
   }
   #mute:hover { opacity: 1; }
+  #lang {
+    position: fixed; top: 16px; left: 16px; z-index: 15;
+    background: rgba(10, 5, 30, 0.85);
+    color: #bffaff;
+    border: 1px solid rgba(0, 240, 255, 0.4);
+    border-radius: 8px;
+    padding: 5px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+  }
+  #lb-box {
+    width: min(340px, 86vw);
+    background: rgba(10, 5, 30, 0.65);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    border-radius: 14px;
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+  #lb-box.hidden { display: none; }
+  .lb-title { font-weight: 700; color: #7ff5ff; margin-bottom: 8px; }
+  #lb-list { text-align: left; line-height: 1.75; min-height: 20px; }
+  #lb-list .me { color: #ffe14d; }
+  #lb-list .rank { display: inline-block; width: 26px; opacity: .65; }
+  #lb-list .sc { float: right; font-weight: 700; }
+  #lb-submit-row { display: flex; gap: 8px; margin-top: 10px; }
+  #lb-name {
+    flex: 1; min-width: 0;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    border-radius: 8px;
+    color: #fff;
+    padding: 8px 10px;
+    font-size: 14px;
+    outline: none;
+  }
+  #lb-send { padding: 8px 16px; font-size: 14px; border-radius: 8px; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="hud"><span id="score-live"></span></div>
 <div id="mute">🔊</div>
+<select id="lang"></select>
 
 <div class="overlay" id="start-screen">
   <h1>NEON GLIDE</h1>
   <div class="seed-tag" id="seed-tag-start"></div>
-  <p class="sub">누르고 있으면 상승, 떼면 하강.<br>네온 게이트를 통과하며 최대한 멀리 활공하세요.<br>⭐ 별은 +1점 · 움직이는 게이트 주의 · 🔴 레이저는 꺼진 순간 통과!<br><b>오늘의 코스는 전 세계 모두 동일합니다.</b></p>
+  <p class="sub" id="howto"></p>
   <div class="best" id="best-start"></div>
-  <button id="btn-start">오늘의 코스 시작</button>
+  <button id="btn-start"></button>
 </div>
 
 <div class="overlay hidden" id="over-screen">
-  <div class="sub">GAME OVER</div>
+  <div class="sub" id="over-label"></div>
   <div class="big-score" id="final-score">0</div>
   <div class="best" id="best-over"></div>
   <div class="seed-tag" id="seed-tag-over"></div>
-  <button id="btn-share">📤 점수 공유하기</button>
-  <button class="ghost" id="btn-retry">다시 도전</button>
+  <div id="lb-box" class="hidden">
+    <div class="lb-title" id="lb-title"></div>
+    <div id="lb-list"></div>
+    <div id="lb-submit-row">
+      <input id="lb-name" maxlength="12" autocomplete="off">
+      <button id="lb-send"></button>
+    </div>
+  </div>
+  <button id="btn-share"></button>
+  <button class="ghost" id="btn-retry"></button>
 </div>
 
 <div id="toast"></div>
@@ -127,7 +179,7 @@
 (() => {
   'use strict';
 
-  // ---------- 데일리 시드 (KST 기준: 전 세계 유저가 같은 날 같은 코스) ----------
+  // ---------- 데일리 시드 (UTC+9 기준: 전 세계가 같은 날 같은 코스) ----------
   const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
   const dateStr = kstNow.toISOString().slice(0, 10);
 
@@ -147,6 +199,108 @@
       t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
+  }
+
+  // ---------- 다국어 ----------
+  const I18N = {
+    en: { name: 'English',
+      howto: 'Hold to rise, release to dive.<br>Glide through the neon gates as far as you can.<br>⭐ Stars are +1 · gates may move · 🔴 lasers always leave a gap open!<br><b>Everyone in the world plays the same course today.</b>',
+      todayCourse: "Today's course", dailyCourse: 'daily course', best: "Today's best",
+      start: "START TODAY'S RUN", over: 'GAME OVER', share: '📤 Share score', retry: 'Retry',
+      copied: 'Score copied — challenge a friend! 📋',
+      shareText: '🛸 NEON GLIDE {date}\nI scored {score} on today\'s course!\nBeat me on the exact same course 👉 {url}',
+      lbTitle: '🏆 Global Top 10', yourName: 'Your name', submit: 'Submit', saved: 'Saved!', loading: 'Loading…', lbError: 'Leaderboard offline' },
+    ko: { name: '한국어',
+      howto: '누르고 있으면 상승, 떼면 하강.<br>네온 게이트를 통과하며 최대한 멀리 활공하세요.<br>⭐ 별은 +1점 · 움직이는 게이트 주의 · 🔴 레이저는 항상 통로가 열려 있어요!<br><b>오늘의 코스는 전 세계 모두 동일합니다.</b>',
+      todayCourse: '오늘의 코스', dailyCourse: '데일리 코스', best: '오늘의 최고 기록',
+      start: '오늘의 코스 시작', over: 'GAME OVER', share: '📤 점수 공유하기', retry: '다시 도전',
+      copied: '점수가 복사됐어요 — 친구에게 도전장을! 📋',
+      shareText: '🛸 NEON GLIDE {date}\n오늘의 코스에서 {score}점 기록!\n같은 코스에서 나를 이겨보세요 👉 {url}',
+      lbTitle: '🏆 글로벌 Top 10', yourName: '이름', submit: '등록', saved: '저장 완료!', loading: '불러오는 중…', lbError: '리더보드 오프라인' },
+    ja: { name: '日本語',
+      howto: '押すと上昇、離すと下降。<br>ネオンゲートを抜けてどこまでも滑空しよう。<br>⭐ 星は+1点 · 動くゲートに注意 · 🔴 レーザーには必ず通り道がある!<br><b>今日のコースは世界中みんな同じ。</b>',
+      todayCourse: '今日のコース', dailyCourse: 'デイリーコース', best: '今日のベスト',
+      start: '今日のコースをプレイ', over: 'GAME OVER', share: '📤 スコアをシェア', retry: 'リトライ',
+      copied: 'スコアをコピーしました — 友達に挑戦状を! 📋',
+      shareText: '🛸 NEON GLIDE {date}\n今日のコースで{score}点!\n同じコースで勝負しよう 👉 {url}',
+      lbTitle: '🏆 世界Top 10', yourName: '名前', submit: '登録', saved: '保存しました!', loading: '読み込み中…', lbError: 'ランキングはオフライン' },
+    zh: { name: '中文',
+      howto: '按住上升，松开下降。<br>穿过霓虹之门，滑翔得越远越好。<br>⭐ 星星+1分 · 小心移动的门 · 🔴 激光总会留出通道!<br><b>今天全世界玩的是同一条赛道。</b>',
+      todayCourse: '今日赛道', dailyCourse: '每日赛道', best: '今日最佳',
+      start: '开始今日挑战', over: 'GAME OVER', share: '📤 分享成绩', retry: '再试一次',
+      copied: '成绩已复制 — 向朋友发起挑战! 📋',
+      shareText: '🛸 NEON GLIDE {date}\n我在今日赛道拿了{score}分!\n来同一条赛道击败我 👉 {url}',
+      lbTitle: '🏆 全球Top 10', yourName: '你的名字', submit: '提交', saved: '已保存!', loading: '加载中…', lbError: '排行榜离线' },
+    es: { name: 'Español',
+      howto: 'Mantén pulsado para subir, suelta para bajar.<br>Planea entre las puertas de neón lo más lejos posible.<br>⭐ Estrellas +1 · cuidado con las puertas móviles · 🔴 ¡los láseres siempre dejan un hueco!<br><b>Hoy todo el mundo juega el mismo recorrido.</b>',
+      todayCourse: 'Recorrido de hoy', dailyCourse: 'recorrido diario', best: 'Mejor de hoy',
+      start: 'JUGAR EL RECORRIDO DE HOY', over: 'GAME OVER', share: '📤 Compartir puntuación', retry: 'Reintentar',
+      copied: '¡Puntuación copiada — reta a un amigo! 📋',
+      shareText: '🛸 NEON GLIDE {date}\n¡Hice {score} puntos en el recorrido de hoy!\nSupérame en el mismo recorrido 👉 {url}',
+      lbTitle: '🏆 Top 10 Global', yourName: 'Tu nombre', submit: 'Enviar', saved: '¡Guardado!', loading: 'Cargando…', lbError: 'Ranking sin conexión' },
+    pt: { name: 'Português',
+      howto: 'Segure para subir, solte para descer.<br>Plane pelas portas de néon o mais longe possível.<br>⭐ Estrelas +1 · cuidado com portas móveis · 🔴 lasers sempre deixam passagem!<br><b>Hoje o mundo inteiro joga o mesmo percurso.</b>',
+      todayCourse: 'Percurso de hoje', dailyCourse: 'percurso diário', best: 'Melhor de hoje',
+      start: 'JOGAR O PERCURSO DE HOJE', over: 'GAME OVER', share: '📤 Compartilhar pontuação', retry: 'Tentar de novo',
+      copied: 'Pontuação copiada — desafie um amigo! 📋',
+      shareText: '🛸 NEON GLIDE {date}\nFiz {score} pontos no percurso de hoje!\nMe supere no mesmo percurso 👉 {url}',
+      lbTitle: '🏆 Top 10 Global', yourName: 'Seu nome', submit: 'Enviar', saved: 'Salvo!', loading: 'Carregando…', lbError: 'Ranking offline' },
+    fr: { name: 'Français',
+      howto: 'Maintenez pour monter, relâchez pour descendre.<br>Planez à travers les portes néon le plus loin possible.<br>⭐ Étoiles +1 · gare aux portes mobiles · 🔴 les lasers laissent toujours un passage !<br><b>Aujourd\'hui, le monde entier joue le même parcours.</b>',
+      todayCourse: "Parcours du jour", dailyCourse: 'parcours quotidien', best: "Record du jour",
+      start: 'JOUER LE PARCOURS DU JOUR', over: 'GAME OVER', share: '📤 Partager le score', retry: 'Réessayer',
+      copied: 'Score copié — défiez un ami ! 📋',
+      shareText: '🛸 NEON GLIDE {date}\nJ\'ai fait {score} points sur le parcours du jour !\nBats-moi sur le même parcours 👉 {url}',
+      lbTitle: '🏆 Top 10 Mondial', yourName: 'Votre nom', submit: 'Envoyer', saved: 'Enregistré !', loading: 'Chargement…', lbError: 'Classement hors ligne' },
+    de: { name: 'Deutsch',
+      howto: 'Halten zum Steigen, loslassen zum Sinken.<br>Gleite so weit wie möglich durch die Neon-Tore.<br>⭐ Sterne +1 · Achtung, bewegliche Tore · 🔴 Laser lassen immer eine Lücke!<br><b>Heute spielt die ganze Welt denselben Kurs.</b>',
+      todayCourse: 'Heutiger Kurs', dailyCourse: 'Tageskurs', best: 'Tagesbestwert',
+      start: 'HEUTIGEN KURS SPIELEN', over: 'GAME OVER', share: '📤 Score teilen', retry: 'Nochmal',
+      copied: 'Score kopiert — fordere einen Freund heraus! 📋',
+      shareText: '🛸 NEON GLIDE {date}\nIch habe {score} Punkte auf dem heutigen Kurs!\nSchlag mich auf demselben Kurs 👉 {url}',
+      lbTitle: '🏆 Globale Top 10', yourName: 'Dein Name', submit: 'Senden', saved: 'Gespeichert!', loading: 'Laden…', lbError: 'Rangliste offline' },
+    ru: { name: 'Русский',
+      howto: 'Держите — подъём, отпустите — спуск.<br>Пролетайте сквозь неоновые ворота как можно дальше.<br>⭐ Звёзды +1 · берегитесь движущихся ворот · 🔴 лазеры всегда оставляют проход!<br><b>Сегодня весь мир играет на одной трассе.</b>',
+      todayCourse: 'Трасса дня', dailyCourse: 'ежедневная трасса', best: 'Лучший за день',
+      start: 'ИГРАТЬ ТРАССУ ДНЯ', over: 'GAME OVER', share: '📤 Поделиться счётом', retry: 'Ещё раз',
+      copied: 'Счёт скопирован — вызовите друга! 📋',
+      shareText: '🛸 NEON GLIDE {date}\nЯ набрал {score} на трассе дня!\nПобей меня на той же трассе 👉 {url}',
+      lbTitle: '🏆 Мировой Топ-10', yourName: 'Ваше имя', submit: 'Отправить', saved: 'Сохранено!', loading: 'Загрузка…', lbError: 'Рейтинг офлайн' }
+  };
+  let lang = localStorage.getItem('ng-lang');
+  if (!lang || !I18N[lang]) {
+    const nav = (navigator.language || 'en').toLowerCase();
+    lang = Object.keys(I18N).find(k => nav.startsWith(k)) || 'en';
+  }
+  const T = key => I18N[lang][key];
+
+  const langSel = document.getElementById('lang');
+  for (const k of Object.keys(I18N)) {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = I18N[k].name;
+    langSel.appendChild(o);
+  }
+  langSel.value = lang;
+  langSel.addEventListener('change', () => {
+    lang = langSel.value;
+    localStorage.setItem('ng-lang', lang);
+    applyLang();
+  });
+  langSel.addEventListener('pointerdown', e => e.stopPropagation());
+
+  function applyLang() {
+    document.getElementById('howto').innerHTML = T('howto');
+    document.getElementById('seed-tag-start').textContent = `📅 ${T('todayCourse')} · ${dateStr}`;
+    document.getElementById('seed-tag-over').textContent = `📅 ${dateStr} ${T('dailyCourse')}`;
+    document.getElementById('btn-start').textContent = T('start');
+    document.getElementById('over-label').textContent = T('over');
+    document.getElementById('btn-share').textContent = T('share');
+    document.getElementById('btn-retry').textContent = T('retry');
+    document.getElementById('lb-title').textContent = T('lbTitle');
+    document.getElementById('lb-name').placeholder = T('yourName');
+    document.getElementById('lb-send').textContent = T('submit');
+    const savedBest = localStorage.getItem(BEST_KEY);
+    document.getElementById('best-start').textContent = savedBest ? `${T('best')}: ${savedBest}` : '';
   }
 
   // ---------- 캔버스 ----------
@@ -176,7 +330,7 @@
     const arr = [];
     for (let i = 0; i < 90; i++) {
       arr.push({
-        x: seedRng() * 1.2, y: seedRng(),          // 화면 비율 좌표
+        x: seedRng() * 1.2, y: seedRng(),
         r: 0.6 + seedRng() * 1.6,
         depth: 0.15 + seedRng() * 0.55,
         tw: seedRng() * Math.PI * 2
@@ -216,15 +370,15 @@
       color: NEONS[(rng() * NEONS.length) | 0],
       passed: false,
       pulse: rng() * Math.PI * 2,
-      type: 'static', amp: 0, phase: rng() * Math.PI * 2
+      type: 'static', amp: 0, phase: rng() * Math.PI * 2,
+      segTop: rng() < 0.5                            // 레이저가 틈의 위/아래 어느 쪽을 막는지
     };
     const roll = rng();
     if (score >= 4 && roll < 0.35) {
       g.type = 'mover';
       g.amp = 40 + Math.min(80, score * 2);
-    } else if (score >= 9 && roll < 0.6) {
+    } else if (score >= 8 && roll < 0.62) {
       g.type = 'laser';
-      g.color = '#ff2d55';
     }
     return g;
   }
@@ -247,56 +401,97 @@
     const cy = g.cy + Math.sin(elapsed * 2.2 + g.phase) * g.amp;
     return Math.max(half + 30, Math.min(H - half - 30, cy));
   }
+  // 레이저는 틈의 55%만 막는다 — 반대쪽은 언제나 열린 통로 (완전 차단 없음)
+  const LASER_FRAC = 0.55;
+  function laserSeg(g, cy) {
+    const half = g.gapH / 2, segLen = g.gapH * LASER_FRAC;
+    return g.segTop
+      ? [cy - half, cy - half + segLen]
+      : [cy + half - segLen, cy + half];
+  }
   function laserPhase(g) { return (elapsed + g.pulse) % 1.6; }
-  function laserOn(g) { return laserPhase(g) < 0.7; }      // 0.7초 켜짐 / 0.9초 꺼짐
-  function laserWarn(g) { return laserPhase(g) > 1.35; }   // 켜지기 직전 예고
+  function laserOn(g) { return laserPhase(g) < 0.7; }
+  function laserWarn(g) { return laserPhase(g) > 1.35; }
 
-  // ---------- 사운드 (WebAudio 신스웨이브, 외부 파일 없음) ----------
-  let ac = null, musicTimer = null, musicStep = 0;
+  // ---------- 사운드 (WebAudio 펑키 일렉트로, 외부 파일 없음) ----------
+  let ac = null, master = null, delaySend = null, musicTimer = null, musicStep = 0;
   let soundOn = localStorage.getItem('neonglide-sound') !== '0';
 
   function ensureAudio() {
     if (!soundOn) return;
-    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if (!ac) {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createDynamicsCompressor();
+      master.threshold.value = -18;
+      master.ratio.value = 5;
+      master.connect(ac.destination);
+      const dly = ac.createDelay(1);
+      dly.delayTime.value = 0.2381;                  // 16분음표 2개 (126BPM)
+      const fb = ac.createGain(); fb.gain.value = 0.35;
+      const wet = ac.createGain(); wet.gain.value = 0.45;
+      dly.connect(fb); fb.connect(dly);
+      dly.connect(wet); wet.connect(master);
+      delaySend = dly;
+    }
     if (ac.state === 'suspended') ac.resume();
-    if (!musicTimer) musicTimer = setInterval(musicTick, 224);   // ≈134BPM 8분음표
+    if (!musicTimer) musicTimer = setInterval(musicTick, 119);   // 126BPM 16분음표
   }
-  function tone(freq, dur, type, vol, slideTo) {
+  function tone(freq, dur, type, vol, opts) {
     if (!ac || !soundOn) return;
+    opts = opts || {};
     const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime;
     o.type = type;
     o.frequency.setValueAtTime(freq, t0);
-    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    if (opts.slideTo) o.frequency.exponentialRampToValueAtTime(opts.slideTo, t0 + dur);
     g.gain.setValueAtTime(vol, t0);
     g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-    o.connect(g); g.connect(ac.destination);
+    let node = o;
+    if (opts.lp) {
+      const f = ac.createBiquadFilter();
+      f.type = 'lowpass'; f.Q.value = opts.q || 1;
+      f.frequency.setValueAtTime(opts.lp, t0);
+      if (opts.lpEnd) f.frequency.exponentialRampToValueAtTime(opts.lpEnd, t0 + dur);
+      o.connect(f); node = f;
+    }
+    node.connect(g);
+    g.connect(opts.echo ? delaySend : master);
+    if (opts.echo) g.connect(master);
     o.start(t0); o.stop(t0 + dur + 0.02);
   }
-  function noiseHit(dur, vol, hpFreq) {
+  function noiseHit(dur, vol, fType, fFreq, q) {
     if (!ac || !soundOn) return;
     const len = (ac.sampleRate * dur) | 0;
     const buf = ac.createBuffer(1, len, ac.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
     const src = ac.createBufferSource(); src.buffer = buf;
-    const f = ac.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hpFreq;
+    const f = ac.createBiquadFilter(); f.type = fType; f.frequency.value = fFreq; f.Q.value = q || 1;
     const g = ac.createGain(); g.gain.value = vol;
-    src.connect(f); f.connect(g); g.connect(ac.destination);
+    src.connect(f); f.connect(g); g.connect(master);
     src.start();
   }
-  const BASSLINE = [55, 55, 82.41, 55, 65.41, 65.41, 98, 73.42];
-  const ARP = [440, 554.37, 659.26, 880, 1108.7, 880, 659.26, 554.37];
+  // 32스텝(2마디) 펑키 그루브 — A마이너
+  const BASS = { 0:[55,.24], 3:[55,.1], 6:[110,.1], 8:[82.41,.22], 11:[55,.1], 14:[98,.12], 16:[55,.24], 19:[55,.1], 22:[110,.1], 24:[87.31,.22], 27:[65.41,.1], 30:[73.42,.12] };
+  const LEAD = { 0:440, 2:523.25, 4:587.33, 6:659.25, 10:523.25, 12:440, 16:659.25, 18:783.99, 20:880, 24:659.25, 26:587.33, 28:523.25 };
+  const STAB = { 6:[220,261.63,329.63,392], 22:[196,246.94,293.66,349.23] };
   function musicTick() {
     if (!ac || !soundOn) return;
-    if (musicStep % 4 === 0) tone(140, 0.13, 'sine', 0.4, 45);                      // 킥
-    if (musicStep % 4 === 2) noiseHit(0.05, 0.1, 6000);                             // 햇
-    tone(BASSLINE[musicStep % 8], 0.2, 'sawtooth', 0.05);                           // 베이스
-    if (state === 'play') tone(ARP[musicStep % 8], 0.14, 'triangle', 0.03);         // 아르페지오
+    const s = musicStep % 32;
+    if (s % 4 === 0) tone(150, 0.13, 'sine', 0.5, { slideTo: 42 });                 // 킥 (4-on-floor)
+    if (s === 14 || s === 30) tone(150, 0.09, 'sine', 0.25, { slideTo: 50 });       // 고스트 킥
+    if (s % 8 === 4) noiseHit(0.1, 0.16, 'bandpass', 1800, 0.8);                    // 클랩 백비트
+    noiseHit(0.025, s % 2 ? 0.05 : 0.028, 'highpass', 8200);                        // 클로즈드 햇
+    if (s % 8 === 2) noiseHit(0.13, 0.05, 'highpass', 7000);                        // 오픈 햇
+    const b = BASS[s];
+    if (b) tone(b[0], b[1], 'sawtooth', 0.11, { lp: 900, lpEnd: 220, q: 2 });       // 펑키 베이스
+    const st = STAB[s];
+    if (st) for (const f of st) tone(f, 0.16, 'sawtooth', 0.016, { lp: 1500 });     // 코드 스탭
+    if (state === 'play' && LEAD[s]) tone(LEAD[s], 0.13, 'triangle', 0.035, { echo: true }); // 리드 (딜레이)
     musicStep++;
   }
-  function passSfx() { tone(520 + Math.min(500, score * 14), 0.09, 'sine', 0.14, 820 + Math.min(500, score * 14)); }
+  function passSfx() { tone(520 + Math.min(500, score * 14), 0.09, 'sine', 0.14, { slideTo: 820 + Math.min(500, score * 14) }); }
   function coinSfx() { tone(1318.5, 0.07, 'square', 0.07); setTimeout(() => tone(1760, 0.1, 'square', 0.07), 60); }
-  function dieSfx() { tone(320, 0.5, 'sawtooth', 0.22, 50); noiseHit(0.35, 0.2, 700); }
+  function dieSfx() { tone(320, 0.5, 'sawtooth', 0.22, { slideTo: 50 }); noiseHit(0.35, 0.2, 'highpass', 700); }
 
   const muteBtn = document.getElementById('mute');
   function syncMute() { muteBtn.textContent = soundOn ? '🔊' : '🔇'; }
@@ -309,6 +504,66 @@
     syncMute();
   });
   syncMute();
+
+  // ---------- 글로벌 리더보드 (Firebase Realtime DB REST) ----------
+  // LB_URL이 비어 있으면 리더보드 UI는 숨겨진다. 예: 'https://xxxx-default-rtdb.firebaseio.com/neonglide'
+  const LB_URL = '';
+  const lbBox = document.getElementById('lb-box');
+  const lbList = document.getElementById('lb-list');
+  const lbName = document.getElementById('lb-name');
+  lbName.value = localStorage.getItem('ng-name') || '';
+  lbName.addEventListener('pointerdown', e => e.stopPropagation());
+  document.getElementById('lb-send').addEventListener('pointerdown', e => e.stopPropagation());
+
+  async function lbTop10() {
+    const r = await fetch(`${LB_URL}/scores.json?orderBy="s"&limitToLast=100`);
+    if (!r.ok) throw new Error('lb fetch failed');
+    const data = await r.json() || {};
+    return Object.values(data)
+      .filter(e => e && typeof e.s === 'number' && e.n)
+      .sort((a, b) => b.s - a.s)
+      .slice(0, 10);
+  }
+  function renderLb(rows, myName) {
+    lbList.innerHTML = '';
+    rows.forEach((e, i) => {
+      const div = document.createElement('div');
+      if (myName && e.n === myName) div.className = 'me';
+      const rank = document.createElement('span'); rank.className = 'rank'; rank.textContent = (i + 1) + '.';
+      const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = e.s;
+      div.appendChild(rank);
+      div.appendChild(document.createTextNode(String(e.n).slice(0, 12) + ' '));
+      div.appendChild(sc);
+      lbList.appendChild(div);
+    });
+    if (!rows.length) lbList.textContent = '—';
+  }
+  async function refreshLb() {
+    if (!LB_URL) return;
+    lbBox.classList.remove('hidden');
+    lbList.textContent = T('loading');
+    try { renderLb(await lbTop10(), localStorage.getItem('ng-name')); }
+    catch (_) { lbList.textContent = T('lbError'); }
+  }
+  document.getElementById('lb-send').addEventListener('click', async e => {
+    e.stopPropagation();
+    if (!LB_URL) return;
+    const name = lbName.value.trim().slice(0, 12);
+    if (!name || !score) return;
+    localStorage.setItem('ng-name', name);
+    const btn = document.getElementById('lb-send');
+    btn.disabled = true;
+    try {
+      await fetch(`${LB_URL}/scores.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ n: name, s: score, d: dateStr, t: Date.now() })
+      });
+      btn.textContent = T('saved');
+      await refreshLb();
+    } catch (_) { lbList.textContent = T('lbError'); }
+    setTimeout(() => { btn.textContent = T('submit'); btn.disabled = false; }, 1500);
+  });
 
   // ---------- 입력 ----------
   function press(e) { if (state === 'play') { holding = true; e.preventDefault(); } }
@@ -355,7 +610,10 @@
       const halfGap = g.gapH / 2, gateW = 26;
       if (Math.abs(g.x - px) < gateW / 2 + 12) {
         if (player.y < cy - halfGap + 10 || player.y > cy + halfGap - 10) return die();
-        if (g.type === 'laser' && laserOn(g)) return die();   // 켜진 레이저 통과 = 사망
+        if (g.type === 'laser' && laserOn(g)) {
+          const [a, b] = laserSeg(g, cy);
+          if (player.y > a && player.y < b) return die();
+        }
       }
       if (!g.passed && g.x < px) {
         g.passed = true;
@@ -410,9 +668,12 @@
     const best = Math.max(score, +(localStorage.getItem(BEST_KEY) || 0));
     localStorage.setItem(BEST_KEY, best);
     document.getElementById('final-score').textContent = score;
-    document.getElementById('best-over').textContent = `오늘의 최고 기록: ${best}`;
+    document.getElementById('best-over').textContent = `${T('best')}: ${best}`;
     document.getElementById('score-live').textContent = '';
-    setTimeout(() => document.getElementById('over-screen').classList.remove('hidden'), 450);
+    setTimeout(() => {
+      document.getElementById('over-screen').classList.remove('hidden');
+      refreshLb();
+    }, 450);
   }
 
   // ---------- 렌더 ----------
@@ -452,7 +713,7 @@
     // 게이트 (글로우는 shadowBlur 대신 저비용 반투명 레이어)
     if (state !== 'idle') {
       for (const g of gates) {
-        if (g.x < -40 || g.x > W + 40) continue;     // 화면 밖 게이트 스킵
+        if (g.x < -40 || g.x > W + 40) continue;
         const cy = gateCY(g);
         const half = g.gapH / 2;
         const pulse = 0.75 + 0.25 * Math.sin(t * 5 + g.pulse);
@@ -476,27 +737,31 @@
         ctx.globalAlpha = 1;
         ctx.beginPath(); ctx.arc(g.x, cy - half, 5 * pulse + 2, 0, 7); ctx.fill();
         ctx.beginPath(); ctx.arc(g.x, cy + half, 5 * pulse + 2, 0, 7); ctx.fill();
-        // 레이저 빔: 켜지면 붉게, 켜지기 직전엔 흐릿한 예고
+        // 부분 레이저: 켜지면 붉게, 켜지기 직전엔 흐릿한 예고 (통로는 항상 열려 있음)
         if (g.type === 'laser') {
           const on = laserOn(g), warn = laserWarn(g);
           if (on || warn) {
+            const [a, b] = laserSeg(g, cy);
             ctx.strokeStyle = '#ff2d55';
             if (on) {
               const flick = 0.75 + 0.25 * Math.sin(t * 40);
               ctx.globalAlpha = 0.25 * flick;
               ctx.lineWidth = 11;
-              ctx.beginPath(); ctx.moveTo(g.x, cy - half + 4); ctx.lineTo(g.x, cy + half - 4); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(g.x, a + 2); ctx.lineTo(g.x, b - 2); ctx.stroke();
               ctx.globalAlpha = flick;
               ctx.lineWidth = 4;
-              ctx.beginPath(); ctx.moveTo(g.x, cy - half + 4); ctx.lineTo(g.x, cy + half - 4); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(g.x, a + 2); ctx.lineTo(g.x, b - 2); ctx.stroke();
               ctx.strokeStyle = '#ffd7de';
               ctx.globalAlpha = 0.9;
               ctx.lineWidth = 1.5;
-              ctx.beginPath(); ctx.moveTo(g.x, cy - half + 4); ctx.lineTo(g.x, cy + half - 4); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(g.x, a + 2); ctx.lineTo(g.x, b - 2); ctx.stroke();
+              // 레이저 발생기 노드
+              ctx.fillStyle = '#ff2d55';
+              ctx.beginPath(); ctx.arc(g.x, g.segTop ? a : b, 6, 0, 7); ctx.fill();
             } else {
               ctx.globalAlpha = 0.22;
               ctx.lineWidth = 1.5;
-              ctx.beginPath(); ctx.moveTo(g.x, cy - half + 4); ctx.lineTo(g.x, cy + half - 4); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(g.x, a + 2); ctx.lineTo(g.x, b - 2); ctx.stroke();
             }
             ctx.globalAlpha = 1;
           }
@@ -570,10 +835,7 @@
   // ---------- UI ----------
   const startScreen = document.getElementById('start-screen');
   const overScreen = document.getElementById('over-screen');
-  document.getElementById('seed-tag-start').textContent = `📅 오늘의 코스 · ${dateStr}`;
-  document.getElementById('seed-tag-over').textContent = `📅 ${dateStr} 데일리 코스`;
-  const savedBest = localStorage.getItem(BEST_KEY);
-  if (savedBest) document.getElementById('best-start').textContent = `오늘의 최고 기록: ${savedBest}`;
+  applyLang();
 
   function startGame() {
     ensureAudio();
@@ -589,13 +851,13 @@
   // ---------- 점수 공유 ----------
   document.getElementById('btn-share').addEventListener('click', async e => {
     e.stopPropagation();
-    const text = `🛸 NEON GLIDE ${dateStr}\n오늘의 코스에서 ${score}점 기록!\n같은 코스에서 나를 이겨보세요 👉 ${location.href}`;
+    const text = T('shareText').replace('{date}', dateStr).replace('{score}', score).replace('{url}', 'https://csj3814-create.github.io/neon-glide/');
     try {
       if (navigator.share) {
         await navigator.share({ text });
       } else {
         await navigator.clipboard.writeText(text);
-        toast('점수가 클립보드에 복사됐어요! 친구에게 붙여넣기 📋');
+        toast(T('copied'));
       }
     } catch (_) { /* 사용자가 공유 취소 */ }
   });
