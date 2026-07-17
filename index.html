@@ -98,6 +98,13 @@
     text-shadow: 0 0 16px #ff2df7 !important;
     animation: feverPulse 0.5s infinite alternate;
   }
+  #gate-badge {
+    font-size: 15px !important;
+    color: #7ff5ff !important;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.7) !important;
+    margin-left: 10px;
+    align-self: flex-start;
+  }
   @keyframes feverPulse { from { opacity: 0.75; } to { opacity: 1; } }
   #new-best {
     font-size: 22px;
@@ -162,7 +169,7 @@
 </head>
 <body>
 <canvas id="game"></canvas>
-<div id="hud"><span id="score-live"></span><span id="mult-badge"></span></div>
+<div id="hud"><span id="score-live"></span><span id="mult-badge"></span><span id="gate-badge"></span></div>
 <div id="mute">🔊</div>
 <select id="lang"></select>
 
@@ -175,11 +182,18 @@
   <button id="btn-start"></button>
 </div>
 
+<div class="overlay hidden" id="revive-screen">
+  <div class="big-score" id="revive-count">3</div>
+  <button id="btn-revive"></button>
+  <button class="ghost" id="btn-skip-revive"></button>
+</div>
+
 <div class="overlay hidden" id="over-screen">
   <div class="sub" id="over-label"></div>
   <div class="best hidden" id="new-best"></div>
   <div class="big-score" id="final-score">0</div>
   <div class="best" id="best-over"></div>
+  <div class="sub" id="reached-line"></div>
   <div class="sub" id="rank-hint"></div>
   <div class="seed-tag" id="seed-tag-over"></div>
   <div id="lb-box" class="hidden">
@@ -244,7 +258,8 @@
       copied: 'Score copied — challenge a friend! 📋',
       shareText: '🛸 NEON GLIDE {date}\nI scored {score} on today\'s course!\nBeat me on the exact same course 👉 {url}',
       lbTitle: '🏆 Global Top 10', yourName: 'Your name', submit: 'Submit', saved: 'Saved!', loading: 'Loading…', lbError: 'Leaderboard offline',
-      newBest: '🏆 NEW BEST!', rankIn: '🔥 That is a global TOP 10 score — submit it!', rankNeed: '{n} pts to the global TOP 10', streak: '🔥 {n}-day streak!' },
+      newBest: '🏆 NEW BEST!', rankIn: '🔥 That is a global TOP 10 score — submit it!', rankNeed: '{n} pts to the global TOP 10', streak: '🔥 {n}-day streak!',
+      revive: '🚀 CONTINUE (free ×1)', skipRevive: 'No thanks', reached: 'Reached gate {n}' },
     ko: { name: '한국어',
       howto: '누르고 있으면 상승, 떼면 하강.<br>A = 감속 · D = 가속 (우클릭·두 번째 손가락도 감속).<br>⭐ 별은 배율 부스터 · 벽엔 통로가 2~3개일 수도 · 🔴 레이저는 브레이크로 타이밍을 재세요!<br><b>오늘의 코스는 전 세계 모두 동일합니다.</b>',
       todayCourse: '오늘의 코스', dailyCourse: '데일리 코스', best: '오늘의 최고 기록',
@@ -252,7 +267,8 @@
       copied: '점수가 복사됐어요 — 친구에게 도전장을! 📋',
       shareText: '🛸 NEON GLIDE {date}\n오늘의 코스에서 {score}점 기록!\n같은 코스에서 나를 이겨보세요 👉 {url}',
       lbTitle: '🏆 글로벌 Top 10', yourName: '이름', submit: '등록', saved: '저장 완료!', loading: '불러오는 중…', lbError: '리더보드 오프라인',
-      newBest: '🏆 신기록!', rankIn: '🔥 글로벌 TOP 10 진입 점수예요 — 등록하세요!', rankNeed: '글로벌 TOP 10까지 {n}점', streak: '🔥 {n}일 연속 플레이!' },
+      newBest: '🏆 신기록!', rankIn: '🔥 글로벌 TOP 10 진입 점수예요 — 등록하세요!', rankNeed: '글로벌 TOP 10까지 {n}점', streak: '🔥 {n}일 연속 플레이!',
+      revive: '🚀 이어하기 (무료 1회)', skipRevive: '괜찮아요', reached: '게이트 {n}번까지 도달' },
     ja: { name: '日本語',
       howto: '押すと上昇、離すと下降。<br>A=減速 · D=加速（右クリック・2本目の指でも減速）。<br>⭐ 星は倍率アップ · 壁の通路は2〜3個のことも · 🔴 レーザーはブレーキで待とう!<br><b>今日のコースは世界中みんな同じ。</b>',
       todayCourse: '今日のコース', dailyCourse: 'デイリーコース', best: '今日のベスト',
@@ -260,7 +276,8 @@
       copied: 'スコアをコピーしました — 友達に挑戦状を! 📋',
       shareText: '🛸 NEON GLIDE {date}\n今日のコースで{score}点!\n同じコースで勝負しよう 👉 {url}',
       lbTitle: '🏆 世界Top 10', yourName: '名前', submit: '登録', saved: '保存しました!', loading: '読み込み中…', lbError: 'ランキングはオフライン',
-      newBest: '🏆 自己ベスト!', rankIn: '🔥 世界TOP 10入りのスコア — 登録しよう!', rankNeed: '世界TOP 10まであと{n}点', streak: '🔥 {n}日連続プレイ!' },
+      newBest: '🏆 自己ベスト!', rankIn: '🔥 世界TOP 10入りのスコア — 登録しよう!', rankNeed: '世界TOP 10まであと{n}点', streak: '🔥 {n}日連続プレイ!',
+      revive: '🚀 コンティニュー(無料1回)', skipRevive: 'やめる', reached: 'ゲート{n}まで到達' },
     zh: { name: '中文',
       howto: '按住上升，松开下降。<br>A=刹车 · D=加速（右键/第二根手指也可刹车）。<br>⭐ 星星提升倍率 · 墙可能有2~3个通道 · 🔴 用刹车等激光熄灭!<br><b>今天全世界玩的是同一条赛道。</b>',
       todayCourse: '今日赛道', dailyCourse: '每日赛道', best: '今日最佳',
@@ -268,7 +285,8 @@
       copied: '成绩已复制 — 向朋友发起挑战! 📋',
       shareText: '🛸 NEON GLIDE {date}\n我在今日赛道拿了{score}分!\n来同一条赛道击败我 👉 {url}',
       lbTitle: '🏆 全球Top 10', yourName: '你的名字', submit: '提交', saved: '已保存!', loading: '加载中…', lbError: '排行榜离线',
-      newBest: '🏆 新纪录!', rankIn: '🔥 这是全球TOP 10的分数 — 快提交!', rankNeed: '距全球TOP 10还差{n}分', streak: '🔥 连续玩了{n}天!' },
+      newBest: '🏆 新纪录!', rankIn: '🔥 这是全球TOP 10的分数 — 快提交!', rankNeed: '距全球TOP 10还差{n}分', streak: '🔥 连续玩了{n}天!',
+      revive: '🚀 继续 (免费1次)', skipRevive: '放弃', reached: '到达第{n}道门' },
     es: { name: 'Español',
       howto: 'Mantén pulsado para subir, suelta para bajar.<br>A para frenar · D para acelerar (clic derecho / segundo dedo también frena).<br>⭐ Las estrellas suben el multiplicador · los muros pueden tener 2–3 huecos · 🔴 ¡espera los láseres frenando!<br><b>Hoy todo el mundo juega el mismo recorrido.</b>',
       todayCourse: 'Recorrido de hoy', dailyCourse: 'recorrido diario', best: 'Mejor de hoy',
@@ -276,7 +294,8 @@
       copied: '¡Puntuación copiada — reta a un amigo! 📋',
       shareText: '🛸 NEON GLIDE {date}\n¡Hice {score} puntos en el recorrido de hoy!\nSupérame en el mismo recorrido 👉 {url}',
       lbTitle: '🏆 Top 10 Global', yourName: 'Tu nombre', submit: 'Enviar', saved: '¡Guardado!', loading: 'Cargando…', lbError: 'Ranking sin conexión',
-      newBest: '🏆 ¡NUEVO RÉCORD!', rankIn: '🔥 ¡Puntuación de TOP 10 global — envíala!', rankNeed: '{n} pts para el TOP 10 global', streak: '🔥 ¡Racha de {n} días!' },
+      newBest: '🏆 ¡NUEVO RÉCORD!', rankIn: '🔥 ¡Puntuación de TOP 10 global — envíala!', rankNeed: '{n} pts para el TOP 10 global', streak: '🔥 ¡Racha de {n} días!',
+      revive: '🚀 CONTINUAR (gratis ×1)', skipRevive: 'No, gracias', reached: 'Llegaste a la puerta {n}' },
     pt: { name: 'Português',
       howto: 'Segure para subir, solte para descer.<br>A para frear · D para acelerar (clique direito / segundo dedo também freia).<br>⭐ Estrelas aumentam o multiplicador · muros podem ter 2–3 aberturas · 🔴 espere os lasers freando!<br><b>Hoje o mundo inteiro joga o mesmo percurso.</b>',
       todayCourse: 'Percurso de hoje', dailyCourse: 'percurso diário', best: 'Melhor de hoje',
@@ -284,7 +303,8 @@
       copied: 'Pontuação copiada — desafie um amigo! 📋',
       shareText: '🛸 NEON GLIDE {date}\nFiz {score} pontos no percurso de hoje!\nMe supere no mesmo percurso 👉 {url}',
       lbTitle: '🏆 Top 10 Global', yourName: 'Seu nome', submit: 'Enviar', saved: 'Salvo!', loading: 'Carregando…', lbError: 'Ranking offline',
-      newBest: '🏆 NOVO RECORDE!', rankIn: '🔥 Pontuação de TOP 10 global — envie!', rankNeed: '{n} pts para o TOP 10 global', streak: '🔥 Sequência de {n} dias!' },
+      newBest: '🏆 NOVO RECORDE!', rankIn: '🔥 Pontuação de TOP 10 global — envie!', rankNeed: '{n} pts para o TOP 10 global', streak: '🔥 Sequência de {n} dias!',
+      revive: '🚀 CONTINUAR (grátis ×1)', skipRevive: 'Não, obrigado', reached: 'Chegou ao portão {n}' },
     fr: { name: 'Français',
       howto: 'Maintenez pour monter, relâchez pour descendre.<br>A pour freiner · D pour accélérer (clic droit / second doigt aussi).<br>⭐ Les étoiles montent le multiplicateur · les murs peuvent avoir 2–3 passages · 🔴 attendez les lasers en freinant !<br><b>Aujourd\'hui, le monde entier joue le même parcours.</b>',
       todayCourse: "Parcours du jour", dailyCourse: 'parcours quotidien', best: "Record du jour",
@@ -292,7 +312,8 @@
       copied: 'Score copié — défiez un ami ! 📋',
       shareText: '🛸 NEON GLIDE {date}\nJ\'ai fait {score} points sur le parcours du jour !\nBats-moi sur le même parcours 👉 {url}',
       lbTitle: '🏆 Top 10 Mondial', yourName: 'Votre nom', submit: 'Envoyer', saved: 'Enregistré !', loading: 'Chargement…', lbError: 'Classement hors ligne',
-      newBest: '🏆 NOUVEAU RECORD !', rankIn: '🔥 Score digne du TOP 10 mondial — envoyez-le !', rankNeed: '{n} pts avant le TOP 10 mondial', streak: '🔥 Série de {n} jours !' },
+      newBest: '🏆 NOUVEAU RECORD !', rankIn: '🔥 Score digne du TOP 10 mondial — envoyez-le !', rankNeed: '{n} pts avant le TOP 10 mondial', streak: '🔥 Série de {n} jours !',
+      revive: '🚀 CONTINUER (gratuit ×1)', skipRevive: 'Non merci', reached: 'Porte {n} atteinte' },
     de: { name: 'Deutsch',
       howto: 'Halten zum Steigen, loslassen zum Sinken.<br>A bremst · D beschleunigt (Rechtsklick / zweiter Finger bremst auch).<br>⭐ Sterne erhöhen den Multiplikator · Wände können 2–3 Öffnungen haben · 🔴 Laser mit der Bremse abwarten!<br><b>Heute spielt die ganze Welt denselben Kurs.</b>',
       todayCourse: 'Heutiger Kurs', dailyCourse: 'Tageskurs', best: 'Tagesbestwert',
@@ -300,7 +321,8 @@
       copied: 'Score kopiert — fordere einen Freund heraus! 📋',
       shareText: '🛸 NEON GLIDE {date}\nIch habe {score} Punkte auf dem heutigen Kurs!\nSchlag mich auf demselben Kurs 👉 {url}',
       lbTitle: '🏆 Globale Top 10', yourName: 'Dein Name', submit: 'Senden', saved: 'Gespeichert!', loading: 'Laden…', lbError: 'Rangliste offline',
-      newBest: '🏆 NEUER REKORD!', rankIn: '🔥 Das ist ein globaler TOP-10-Score — einreichen!', rankNeed: 'Noch {n} Punkte bis zu den globalen TOP 10', streak: '🔥 {n}-Tage-Serie!' },
+      newBest: '🏆 NEUER REKORD!', rankIn: '🔥 Das ist ein globaler TOP-10-Score — einreichen!', rankNeed: 'Noch {n} Punkte bis zu den globalen TOP 10', streak: '🔥 {n}-Tage-Serie!',
+      revive: '🚀 WEITER (gratis ×1)', skipRevive: 'Nein danke', reached: 'Tor {n} erreicht' },
     ru: { name: 'Русский',
       howto: 'Держите — подъём, отпустите — спуск.<br>A — тормоз · D — ускорение (ПКМ/второй палец тоже тормозят).<br>⭐ Звёзды повышают множитель · в стенах бывает 2–3 прохода · 🔴 пережидайте лазеры на тормозе!<br><b>Сегодня весь мир играет на одной трассе.</b>',
       todayCourse: 'Трасса дня', dailyCourse: 'ежедневная трасса', best: 'Лучший за день',
@@ -308,7 +330,8 @@
       copied: 'Счёт скопирован — вызовите друга! 📋',
       shareText: '🛸 NEON GLIDE {date}\nЯ набрал {score} на трассе дня!\nПобей меня на той же трассе 👉 {url}',
       lbTitle: '🏆 Мировой Топ-10', yourName: 'Ваше имя', submit: 'Отправить', saved: 'Сохранено!', loading: 'Загрузка…', lbError: 'Рейтинг офлайн',
-      newBest: '🏆 НОВЫЙ РЕКОРД!', rankIn: '🔥 Это результат мирового ТОП-10 — отправьте его!', rankNeed: '{n} очков до мирового ТОП-10', streak: '🔥 Серия: {n} дн.!' }
+      newBest: '🏆 НОВЫЙ РЕКОРД!', rankIn: '🔥 Это результат мирового ТОП-10 — отправьте его!', rankNeed: '{n} очков до мирового ТОП-10', streak: '🔥 Серия: {n} дн.!',
+      revive: '🚀 ПРОДОЛЖИТЬ (бесплатно ×1)', skipRevive: 'Нет, спасибо', reached: 'Достигнуты врата {n}' }
   };
   let lang = localStorage.getItem('ng-lang');
   if (!lang || !I18N[lang]) {
@@ -342,6 +365,8 @@
     document.getElementById('lb-title').textContent = T('lbTitle');
     document.getElementById('lb-name').placeholder = T('yourName');
     document.getElementById('lb-send').textContent = T('submit');
+    document.getElementById('btn-revive').textContent = T('revive');
+    document.getElementById('btn-skip-revive').textContent = T('skipRevive');
     const savedBest = localStorage.getItem(BEST_KEY);
     document.getElementById('best-start').textContent = savedBest ? `${T('best')}: ${savedBest}` : '';
     document.getElementById('streak').textContent = streakN > 1 ? T('streak').replace('{n}', streakN) : '';
@@ -382,6 +407,10 @@
   let speedF = 1;                          // 브레이크/부스트 속도 배율
   let keyThrottle = 0, mouseBrake = false, touchBrake = false;
   let anchorY = 0;                         // 도달 가능성 보정용 이전 게이트 기준점
+  let gateSeq = 0;                         // 게이트 일련번호
+  let reviveUsed = false, reviveTimer = null;
+  const BESTG_KEY = 'neonglide-bestg-' + dateStr;
+  let bestG = +(localStorage.getItem(BESTG_KEY) || 0);   // 오늘 최고 도달 게이트
   function throttleNow() {
     if (keyThrottle !== 0) return keyThrottle;
     return (mouseBrake || touchBrake) ? -1 : 0;
@@ -392,6 +421,7 @@
     const badge = document.getElementById('mult-badge');
     badge.textContent = mult > 1 ? '×' + mult : '';
     badge.classList.toggle('fever', mult >= 5);
+    document.getElementById('gate-badge').textContent = gatesPassed > 0 ? '#' + gatesPassed : '';
   }
   function popup(x, y, txt, color) {
     popups.push({ x, y, txt, color, life: 0.9 });
@@ -422,6 +452,8 @@
     speedF = 1; keyThrottle = 0; mouseBrake = false; touchBrake = false;
     anchorY = H / 2;
     gatesPassed = +(new URLSearchParams(location.search).get('debug')) || 0;
+    gateSeq = gatesPassed;
+    reviveUsed = false;
     score = gatesPassed * 10;
     mult = 1 + Math.min(9, (gatesPassed / 5) | 0);
     dist = 0; elapsed = 0;
@@ -471,6 +503,7 @@
     }));
     const g = {
       x, gaps,
+      idx: ++gateSeq,
       color: NEONS[(rng() * NEONS.length) | 0],
       passed: false,
       pulse: rng() * Math.PI * 2,
@@ -494,7 +527,22 @@
   }
 
   function maybeCoin(fromX, toX) {
-    if (rng() < 0.55) {
+    const r = rng();
+    if (r < 0.14) {
+      // 스타 러시: 곡선을 그리는 별 5개 (젯팩 조이라이드 코인 패턴)
+      const y0 = 110 + rng() * (H - 220);
+      const amp = 40 + rng() * 70;
+      const x0 = fromX + (toX - fromX) * 0.2;
+      const dir = rng() < 0.5 ? 1 : -1;
+      for (let i = 0; i < 5; i++) {
+        coins.push({
+          x: x0 + i * 44,
+          y: Math.max(60, Math.min(H - 60, y0 + Math.sin(i * 0.8) * amp * dir)),
+          taken: false,
+          spin: rng() * 7
+        });
+      }
+    } else if (r < 0.58) {
       coins.push({
         x: fromX + (toX - fromX) * (0.35 + rng() * 0.3),
         y: 80 + rng() * (H - 160),
@@ -594,16 +642,35 @@
   function musicTick() {
     if (!ac || !soundOn) return;
     const s = musicStep % 32;
-    if (s % 4 === 0) tone(150, 0.13, 'sine', 0.5, { slideTo: 42 });                 // 킥 (4-on-floor)
-    if (s === 14 || s === 30) tone(150, 0.09, 'sine', 0.25, { slideTo: 50 });       // 고스트 킥
-    if (s % 8 === 4) noiseHit(0.1, 0.16, 'bandpass', 1800, 0.8);                    // 클랩 백비트
-    noiseHit(0.025, s % 2 ? 0.05 : 0.028, 'highpass', 8200);                        // 클로즈드 햇
-    if (s % 8 === 2) noiseHit(0.13, 0.05, 'highpass', 7000);                        // 오픈 햇
+    // 진행도에 따라 음악이 4단계로 진화 (0: 인트로, 1: 5게이트~, 2: 15게이트~, 3: 30게이트~)
+    const tier = state === 'play' ? (gatesPassed >= 30 ? 3 : gatesPassed >= 15 ? 2 : gatesPassed >= 5 ? 1 : 0) : 0;
+    // 킥
+    if (s % 4 === 0) tone(150, 0.13, 'sine', 0.5, { slideTo: 42 });
+    if (tier >= 1 && (s === 14 || s === 30)) tone(150, 0.09, 'sine', 0.25, { slideTo: 50 });
+    if (tier >= 3 && s % 8 === 6) tone(150, 0.08, 'sine', 0.2, { slideTo: 55 });
+    // 클랩 + 티어3 스네어 롤
+    if (s % 8 === 4) noiseHit(0.1, 0.16, 'bandpass', 1800, 0.8);
+    if (tier >= 3 && s >= 28) noiseHit(0.05, 0.1, 'bandpass', 2200, 1);
+    // 햇 (티어2부터 더블타임)
+    noiseHit(0.025, s % 2 ? 0.05 : 0.028, 'highpass', 8200);
+    if (tier >= 2) setTimeout(() => noiseHit(0.02, 0.032, 'highpass', 9200), 58);
+    if (tier >= 1 && s % 8 === 2) noiseHit(0.13, 0.05, 'highpass', 7000);
+    // 베이스 (티어2부터 옥타브 팝 추가, 필터도 점점 열림)
     const b = BASS[s];
-    if (b) tone(b[0], b[1], 'sawtooth', 0.11, { lp: 900, lpEnd: 220, q: 2 });       // 펑키 베이스
+    if (b) tone(b[0], b[1], 'sawtooth', 0.11, { lp: 900 + tier * 300, lpEnd: 220, q: 2 });
+    if (tier >= 2 && s % 8 === 7) tone(110, 0.08, 'sawtooth', 0.07, { lp: 1300, lpEnd: 320, q: 2 });
+    // 코드 스탭 (티어1부터, 갈수록 커짐)
     const st = STAB[s];
-    if (st) for (const f of st) tone(f, 0.16, 'sawtooth', 0.016, { lp: 1500 });     // 코드 스탭
-    if (state === 'play' && LEAD[s]) tone(LEAD[s], 0.13, 'triangle', mult >= 5 ? 0.06 : 0.035, { echo: true }); // 리드 (피버 시 강화)
+    if (tier >= 1 && st) for (const f of st) tone(f, 0.16, 'sawtooth', 0.016 + tier * 0.005, { lp: 1500 + tier * 350 });
+    // 리드 (티어1 합류, 티어2 옥타브 상승, 티어3 밀도 2배)
+    if (state === 'play' && tier >= 1) {
+      const base = LEAD[s];
+      if (base) tone(base * (tier >= 2 ? 2 : 1), 0.13, 'triangle', (mult >= 5 ? 0.06 : 0.035) + tier * 0.006, { echo: true });
+      else if (tier >= 3 && s % 2 === 0) {
+        const f2 = LEAD[(s + 4) % 32];
+        tone((f2 || 440) * 2, 0.09, 'triangle', 0.028, { echo: true });
+      }
+    }
     musicStep++;
   }
   function passSfx() { tone(520 + Math.min(500, gatesPassed * 18), 0.09, 'sine', 0.14, { slideTo: 820 + Math.min(500, gatesPassed * 18) }); }
@@ -833,6 +900,11 @@
           popup(px, player.y - 146, '×' + mult, '#ffe14d');
           multSfx();
         }
+        // 10게이트마다 체크포인트 팡파레
+        if (g.idx % 10 === 0) {
+          popup(W * 0.5, H * 0.3, '🚩 CHECKPOINT ' + g.idx, '#ffe14d');
+          multSfx();
+        }
         passSfx();
         burst(px, player.y, g.color, 14);
         updateHud();
@@ -892,17 +964,71 @@
     dieSfx();
     shakeT = 0.35;
     burst(player.x, player.y, '#ff2d55', 40);
+    document.getElementById('score-live').textContent = '';
+    document.getElementById('mult-badge').textContent = '';
+    document.getElementById('gate-badge').textContent = '';
+    // 무료 이어하기 1회 (3게이트 이상 진행 시)
+    if (!reviveUsed && gatesPassed >= 3) {
+      setTimeout(showRevive, 450);
+      return;
+    }
+    finishOver();
+  }
+
+  function showRevive() {
+    const rs = document.getElementById('revive-screen');
+    rs.classList.remove('hidden');
+    let n = 3;
+    document.getElementById('revive-count').textContent = n;
+    reviveTimer = setInterval(() => {
+      n--;
+      if (n <= 0) {
+        clearInterval(reviveTimer);
+        rs.classList.add('hidden');
+        finishOver();
+      } else {
+        document.getElementById('revive-count').textContent = n;
+      }
+    }, 1000);
+  }
+
+  function doRevive() {
+    clearInterval(reviveTimer);
+    document.getElementById('revive-screen').classList.add('hidden');
+    reviveUsed = true;
+    // 전방 코스를 새로 깔고 안전한 위치에서 재개
+    gates = []; coins = []; popups = [];
+    player.y = H / 2; player.vy = 0;
+    player.trail = [];
+    anchorY = H / 2;
+    let gx = W + 300, prevGap = 420;
+    for (let i = 0; i < 6; i++) {
+      gates.push(makeGate(gx, prevGap));
+      const gap = gapBetween();
+      maybeCoin(gx, gx + gap);
+      gx += gap;
+      prevGap = gap;
+    }
+    holding = false; keyThrottle = 0; mouseBrake = false; touchBrake = false;
+    state = 'play';
+    updateHud();
+  }
+
+  function finishOver() {
     const prevBest = +(localStorage.getItem(BEST_KEY) || 0);
     const isNewBest = score > prevBest && score > 0;
     const best = Math.max(score, prevBest);
     localStorage.setItem(BEST_KEY, best);
+    if (gatesPassed > bestG) {
+      bestG = gatesPassed;
+      localStorage.setItem(BESTG_KEY, bestG);
+    }
     document.getElementById('final-score').textContent = score;
     document.getElementById('best-over').textContent = `${T('best')}: ${best}`;
+    document.getElementById('reached-line').textContent = T('reached').replace('{n}', gatesPassed);
     document.getElementById('new-best').textContent = T('newBest');
     document.getElementById('new-best').classList.toggle('hidden', !isNewBest);
     document.getElementById('rank-hint').textContent = '';
-    document.getElementById('score-live').textContent = '';
-    document.getElementById('mult-badge').textContent = '';
     try { if (isNewBest && window.CrazyGames) CrazyGames.SDK.game.happytime(); } catch (_) {}
     try { if (window.CrazyGames) CrazyGames.SDK.game.gameplayStop(); } catch (_) {}
     resetSubmitUI();
@@ -982,6 +1108,17 @@
           ctx.beginPath(); ctx.arc(g.x, s.top, 5 * pulse + 2, 0, 7); ctx.fill();
           ctx.beginPath(); ctx.arc(g.x, s.bot, 5 * pulse + 2, 0, 7); ctx.fill();
         }
+        // 게이트 번호 + BEST 깃발 (지난 최고 도달 지점)
+        ctx.font = '800 14px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.fillText(g.idx, g.x, 24);
+        if (bestG > 0 && g.idx === bestG + 1) {
+          ctx.fillStyle = '#ffe14d';
+          ctx.font = '800 13px "Segoe UI", sans-serif';
+          ctx.fillText('★ BEST', g.x, 44);
+        }
+        ctx.textAlign = 'start';
         // 레이저: 켜지면 붉게, 켜지기 직전엔 흐릿한 예고
         for (const s of sorted) {
           if (!s.gp.laser) continue;
@@ -1140,6 +1277,15 @@
   }
   document.getElementById('btn-start').addEventListener('click', e => { e.stopPropagation(); startGame(); });
   document.getElementById('btn-retry').addEventListener('click', e => { e.stopPropagation(); startGame(); });
+  document.getElementById('btn-revive').addEventListener('click', e => { e.stopPropagation(); doRevive(); });
+  document.getElementById('btn-revive').addEventListener('pointerdown', e => e.stopPropagation());
+  document.getElementById('btn-skip-revive').addEventListener('click', e => {
+    e.stopPropagation();
+    clearInterval(reviveTimer);
+    document.getElementById('revive-screen').classList.add('hidden');
+    finishOver();
+  });
+  document.getElementById('btn-skip-revive').addEventListener('pointerdown', e => e.stopPropagation());
 
   // ---------- 점수 공유 ----------
   document.getElementById('btn-share').addEventListener('click', async e => {
