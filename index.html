@@ -186,6 +186,35 @@
     text-align: center; padding: 30px;
   }
   #rotate-overlay.show { display: flex; }
+
+  /* 모바일 / 낮은 화면: 게임오버·시작 화면이 스크롤 없이 한 번에 보이도록 압축 */
+  @media (max-width: 680px), (max-height: 560px) {
+    .overlay { gap: 7px; padding: 12px; justify-content: center; }
+    h1 { font-size: clamp(30px, 12vw, 52px); }
+    .big-score { font-size: clamp(38px, 15vw, 60px); text-shadow: 0 0 16px #00f0ff; }
+    .sub { font-size: 12.5px; line-height: 1.45; }
+    .best { font-size: 12.5px; }
+    #new-best, #ybadge { font-size: 15px; }
+    .seed-tag { font-size: 11px; padding: 4px 10px; }
+    #next-course { font-size: 11px; }
+    button { padding: 10px 24px; font-size: 15px; border-radius: 11px; }
+    #lb-box { width: min(300px, 90vw); padding: 9px 11px; font-size: 12.5px; }
+    #lb-list { max-height: 108px; line-height: 1.55; }
+    #lb-name, #lb-send { font-size: 12.5px; padding: 6px 9px; }
+    #hud { top: 8px; }
+    #hud span { font-size: 24px; }
+    #mult-badge { font-size: 15px !important; }
+    #gate-badge { font-size: 12px !important; }
+    #mute { font-size: 20px; top: 8px; right: 12px; }
+    #lang { top: 8px; left: 8px; font-size: 12px; padding: 3px 5px; }
+  }
+  /* 아주 낮은 가로 화면(모바일 landscape)에서 리더보드 더 축소 */
+  @media (max-height: 430px) {
+    .overlay { gap: 4px; padding: 8px; }
+    .big-score { font-size: clamp(30px, 11vh, 44px); }
+    #lb-list { max-height: 64px; }
+    .sub, .best { font-size: 11px; }
+  }
   #lb-submit-row { display: flex; gap: 8px; margin-top: 10px; }
   #lb-name {
     flex: 1; min-width: 0;
@@ -434,12 +463,19 @@
   // ---------- 캔버스 ----------
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  let W = 0, H = 0, DPR = 1;
+  // 가상 해상도(플레이 필드)를 고정 → 세로·가로·어떤 화면이든 난이도 동일, 화면엔 줌아웃되어 표시
+  const VW = 1280, VH = 720;
+  let W = VW, H = VH, DPR = 1;
+  let cssW = 0, cssH = 0, vscale = 1, voffX = 0, voffY = 0;
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 1.5);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W * DPR; canvas.height = H * DPR;
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    cssW = window.innerWidth; cssH = window.innerHeight;
+    canvas.width = Math.round(cssW * DPR); canvas.height = Math.round(cssH * DPR);
+    canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
+    W = VW; H = VH;
+    vscale = Math.min(cssW / VW, cssH / VH);          // contain-fit: 전체 필드가 보이도록
+    voffX = (cssW - VW * vscale) / 2;
+    voffY = (cssH - VH * vscale) / 2;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
   window.addEventListener('resize', resize);
@@ -890,7 +926,7 @@
     if (state !== 'play') return;
     if (primaryPtr !== null && e.pointerId !== primaryPtr) {
       throttlePtr = e.pointerId;
-      if (e.clientX < W / 2) { touchBrake = true; touchBoost = false; }
+      if (e.clientX < cssW / 2) { touchBrake = true; touchBoost = false; }
       else { touchBoost = true; touchBrake = false; }
       e.preventDefault(); return;
     }
@@ -1162,6 +1198,23 @@
 
   // ---------- 렌더 ----------
   function draw(t) {
+    // 1) 디바이스 전체를 그라데이션 + 앰비언트 별로 채워 레터박스(검은 여백)를 자연스럽게
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const dbg = ctx.createLinearGradient(0, 0, 0, cssH);
+    dbg.addColorStop(0, '#0a0220'); dbg.addColorStop(0.6, '#05010f'); dbg.addColorStop(1, '#120432');
+    ctx.fillStyle = dbg;
+    ctx.fillRect(0, 0, cssW, cssH);
+    const scroll0 = state === 'play' ? dist : t * 40;
+    ctx.fillStyle = '#cfeaff';
+    for (const s of stars) {
+      const x = ((s.x * cssW - scroll0 * s.depth * 0.5) % (cssW * 1.2) + cssW * 1.2) % (cssW * 1.2) - cssW * 0.1;
+      ctx.globalAlpha = (0.2 + 0.35 * Math.abs(Math.sin(t * 1.5 + s.tw))) * s.depth;
+      ctx.beginPath(); ctx.arc(x, s.y * cssH, s.r * 0.8, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 2) 가상 해상도 변환 적용 (플레이 필드를 화면 중앙에 스케일)
+    ctx.setTransform(DPR * vscale, 0, 0, DPR * vscale, DPR * voffX, DPR * voffY);
     ctx.save();
     if (shakeT > 0) ctx.translate((Math.random() - .5) * shakeT * 30, (Math.random() - .5) * shakeT * 30);
 
@@ -1192,6 +1245,14 @@
     for (let i = 0; i < 5; i++) {
       const y = H * 0.82 + (H * 0.18) * (i / 4) ** 1.6;
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // 플레이 필드 상/하단 경계선 (천장·바닥 = 사망 구역 표시, 특히 모바일 레터박스에서 중요)
+    if (state !== 'idle') {
+      ctx.strokeStyle = 'rgba(255, 45, 85, 0.5)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(W, 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, H - 2); ctx.lineTo(W, H - 2); ctx.stroke();
     }
 
     // 게이트 (글로우는 shadowBlur 대신 저비용 반투명 레이어)
@@ -1392,7 +1453,7 @@
     // 일시정지 오버레이
     if (state === 'paused') {
       ctx.fillStyle = 'rgba(5,1,15,0.55)';
-      ctx.fillRect(0, 0, W, H);
+      ctx.fillRect(-4000, -4000, W + 8000, H + 8000);
       ctx.textAlign = 'center';
       ctx.font = '800 42px "Segoe UI", sans-serif';
       ctx.fillStyle = '#bffaff';
@@ -1425,14 +1486,8 @@
   setInterval(updateCourseTimer, 1000);
   updateCourseTimer();
 
-  // 모바일 세로 화면 → 가로 회전 안내
+  // 모바일: 세로/가로 모두 지원 (가상 해상도로 줌아웃) — 회전 안내 불필요
   const isTouch = 'ontouchstart' in window;
-  function checkOrientation() {
-    const portrait = window.innerHeight > window.innerWidth;
-    document.getElementById('rotate-overlay').classList.toggle('show', isTouch && portrait && window.innerWidth < 900);
-  }
-  window.addEventListener('resize', checkOrientation);
-  checkOrientation();
 
   // 어제 세계 랭킹 배지 (락인 인센티브)
   (async () => {
@@ -1453,14 +1508,6 @@
     startScreen.classList.add('hidden');
     overScreen.classList.add('hidden');
     updateHud();
-    // 모바일: 전체화면 + 가로 고정 시도 (미지원 브라우저는 회전 안내로 대체)
-    if (isTouch && document.documentElement.requestFullscreen) {
-      try {
-        document.documentElement.requestFullscreen()
-          .then(() => { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); })
-          .catch(() => {});
-      } catch (_) {}
-    }
     try { if (window.CrazyGames) CrazyGames.SDK.game.gameplayStart(); } catch (_) {}
   }
   document.getElementById('btn-start').addEventListener('click', e => { e.stopPropagation(); startGame(); });
