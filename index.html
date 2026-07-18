@@ -99,11 +99,12 @@
     animation: feverPulse 0.5s infinite alternate;
   }
   #gate-badge {
-    font-size: 15px !important;
+    font-size: 22px !important;
+    font-weight: 800;
     color: #7ff5ff !important;
-    text-shadow: 0 0 8px rgba(0, 240, 255, 0.7) !important;
-    margin-left: 10px;
-    align-self: flex-start;
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.9) !important;
+    margin-left: 12px;
+    align-self: center;
   }
   @keyframes feverPulse { from { opacity: 0.75; } to { opacity: 1; } }
   #new-best {
@@ -479,6 +480,15 @@
     const savedBest = localStorage.getItem(BEST_KEY);
     document.getElementById('best-start').textContent = savedBest ? `${T('best')}: ${savedBest}` : '';
     document.getElementById('streak').textContent = streakN > 1 ? T('streak').replace('{n}', streakN) : '';
+    // 게임오버 화면의 동적 텍스트도 현재 언어로 다시 적용
+    if (lastRun) {
+      document.getElementById('best-over').textContent = `${T('best')}: ${lastRun.best}`;
+      document.getElementById('reached-line').textContent = T('reached').replace('{n}', lastRun.gatesPassed);
+      document.getElementById('new-best').textContent = T('newBest');
+    }
+    if (yRankIdx >= 0) document.getElementById('ybadge').textContent = T('yRank').replace('{n}', yRankIdx + 1);
+    // 리더보드가 떠 있으면 제목·날짜·힌트도 갱신
+    if (LB_URL && !document.getElementById('over-screen').classList.contains('hidden')) refreshLb();
   }
 
   // ---------- 출석 스트릭 ----------
@@ -536,6 +546,7 @@
   let anchorY = 0;                         // 도달 가능성 보정용 이전 게이트 기준점
   let gateSeq = 0;                         // 게이트 일련번호
   let reviveUsed = false, reviveTimer = null;
+  let lastRun = null, yRankIdx = -1;       // 언어 재적용용 마지막 게임오버 데이터
   const BESTG_KEY = 'neonglide-bestg-' + dateStr;
   let bestG = +(localStorage.getItem(BESTG_KEY) || 0);   // 오늘 최고 도달 게이트
   function throttleNow() {
@@ -978,6 +989,7 @@
     holding = rise; touchBoost = boost; touchBrake = brake;
   }
   function press(e) {
+    if (state === 'paused') { togglePause(); return; }     // 일시정지 중 아무 곳이나 탭 = 재개
     if (state !== 'play') return;
     if (e.pointerType === 'mouse') {
       if (e.button === 0) holding = true;                  // 좌클릭 = 상승
@@ -1055,8 +1067,15 @@
     player.y += player.vy * dt;
 
     player.trail.unshift({ x: px, y: player.y });
-    if (player.trail.length > 22) player.trail.pop();
+    const trailMax = mult >= 10 ? 46 : (mult >= 5 ? 30 : 22);   // MAX 모드에서 꼬리가 확 길어짐
+    while (player.trail.length > trailMax) player.trail.pop();
     for (const p of player.trail) p.x -= spd * dt;
+    // MAX 모드(×10): 반짝이 스파클을 흩뿌림
+    if (mult >= 10 && Math.random() < 0.6) {
+      const a = Math.random() * Math.PI * 2;
+      particles.push({ x: px - 8, y: player.y, vx: -spd * 0.3 + Math.cos(a) * 40, vy: Math.sin(a) * 40,
+        life: 0.4 + Math.random() * 0.4, color: `hsl(${(elapsed * 300 + Math.random() * 80) % 360},100%,65%)` });
+    }
 
     // 천장/바닥 충돌
     if (player.y < 14 || player.y > H - 14) return die();
@@ -1118,8 +1137,9 @@
         // 5게이트마다 배율 상승
         if (gatesPassed % 5 === 0 && mult < 10) {
           mult++;
-          popup(px, player.y - 146, '×' + mult, '#ffe14d');
+          popup(px, player.y - 146, mult >= 10 ? '★ MAX POWER!' : '×' + mult, mult >= 10 ? '#ff2df7' : '#ffe14d');
           multSfx();
+          if (mult >= 10) burst(px, player.y, '#ff2df7', 24);
         }
         // 10게이트마다 체크포인트 팡파레
         if (g.idx % 10 === 0) {
@@ -1149,7 +1169,8 @@
         popup(c.x, c.y - 22, '★ +' + gain, '#ffe14d');
         if (mult < 10) {                     // 별 = 배율 부스터
           mult++;
-          popup(c.x, c.y - 52, '×' + mult, '#ffe14d');
+          popup(c.x, c.y - 52, mult >= 10 ? '★ MAX POWER!' : '×' + mult, mult >= 10 ? '#ff2df7' : '#ffe14d');
+          if (mult >= 10) burst(c.x, c.y, '#ff2df7', 24);
         }
         coinSfx();
         burst(c.x, c.y, '#ffe14d', 12);
@@ -1245,6 +1266,7 @@
       bestG = gatesPassed;
       localStorage.setItem(BESTG_KEY, bestG);
     }
+    lastRun = { best, gatesPassed, isNewBest };
     document.getElementById('final-score').textContent = score;
     document.getElementById('best-over').textContent = `${T('best')}: ${best}`;
     document.getElementById('reached-line').textContent = T('reached').replace('{n}', gatesPassed);
@@ -1312,14 +1334,6 @@
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
     }
 
-    // 플레이 필드 상/하단 경계선 (천장·바닥 = 사망 구역 표시, 특히 모바일 레터박스에서 중요)
-    if (state !== 'idle') {
-      ctx.strokeStyle = 'rgba(255, 45, 85, 0.5)';
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(W, 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, H - 2); ctx.lineTo(W, H - 2); ctx.stroke();
-    }
-
     // 게이트 (글로우는 shadowBlur 대신 저비용 반투명 레이어)
     if (state !== 'idle') {
       for (const g of gates) {
@@ -1356,17 +1370,22 @@
           ctx.beginPath(); ctx.arc(g.x, s.top, 5 * pulse + 2, 0, 7); ctx.fill();
           ctx.beginPath(); ctx.arc(g.x, s.bot, 5 * pulse + 2, 0, 7); ctx.fill();
         }
-        // 게이트 번호 + BEST 깃발 (지난 최고 도달 지점)
-        ctx.font = '800 14px "Segoe UI", sans-serif';
+        // 게이트 번호 (크고 잘 보이게) + BEST 깃발
         ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.fillText(g.idx, g.x, 24);
+        ctx.textBaseline = 'middle';
+        // 번호 배경 알약
+        ctx.fillStyle = 'rgba(5,1,15,0.55)';
+        const numStr = '' + g.idx, numW = 20 + numStr.length * 15;
+        roundRect(g.x - numW / 2, 8, numW, 34, 10);
+        ctx.fillStyle = g.color;
+        ctx.font = '800 26px "Segoe UI", sans-serif';
+        ctx.fillText(numStr, g.x, 26);
         if (bestG > 0 && g.idx === bestG + 1) {
           ctx.fillStyle = '#ffe14d';
-          ctx.font = '800 13px "Segoe UI", sans-serif';
-          ctx.fillText('★ BEST', g.x, 44);
+          ctx.font = '800 16px "Segoe UI", sans-serif';
+          ctx.fillText('★ BEST', g.x, 56);
         }
-        ctx.textAlign = 'start';
+        ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
         // 레이저: 켜지면 붉게, 켜지기 직전엔 흐릿한 예고
         for (const s of sorted) {
           if (!s.gp.laser) continue;
@@ -1442,14 +1461,25 @@
 
     // 플레이어 + 트레일
     if (state === 'play' || state === 'paused' || (state === 'over' && shakeT > 0)) {
-      const fever = mult >= 5;
-      for (let i = player.trail.length - 1; i > 0; i--) {
+      const fever = mult >= 5, maxMode = mult >= 10;
+      const tlen = player.trail.length;
+      for (let i = tlen - 1; i > 0; i--) {
         const p = player.trail[i];
-        ctx.globalAlpha = (1 - i / player.trail.length) * 0.5;
-        ctx.fillStyle = fever ? `hsl(${(t * 400 + i * 26) % 360}, 100%, 62%)` : '#00f0ff';
-        ctx.beginPath(); ctx.arc(p.x, p.y, 8 * (1 - i / player.trail.length) + 1, 0, 7); ctx.fill();
+        const f = 1 - i / tlen;
+        ctx.globalAlpha = f * (maxMode ? 0.8 : 0.5);
+        ctx.fillStyle = fever ? `hsl(${(t * 400 + i * 26) % 360}, 100%, ${maxMode ? 66 : 62}%)` : '#00f0ff';
+        ctx.beginPath(); ctx.arc(p.x, p.y, (maxMode ? 12 : 8) * f + 1, 0, 7); ctx.fill();
       }
       ctx.globalAlpha = 1;
+      // MAX 모드: 기체 주변 무지개 오라
+      if (maxMode && (state === 'play' || state === 'paused')) {
+        for (let k = 0; k < 3; k++) {
+          ctx.globalAlpha = 0.18;
+          ctx.fillStyle = `hsl(${(t * 400 + k * 120) % 360},100%,65%)`;
+          ctx.beginPath(); ctx.arc(player.x, player.y, 26 + k * 8 + Math.sin(t * 8 + k) * 4, 0, 7); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
       if (state === 'play' || state === 'paused') {
         const tilt = Math.max(-0.5, Math.min(0.5, player.vy / 700));
         // 에너지 부족 시 기체가 빨갛게 점멸 (25% 이하)
@@ -1509,8 +1539,9 @@
       ctx.font = '800 42px "Segoe UI", sans-serif';
       ctx.fillStyle = '#bffaff';
       ctx.fillText('⏸ PAUSED', W / 2, H / 2);
-      ctx.font = '600 16px "Segoe UI", sans-serif';
-      ctx.fillText('P / Esc', W / 2, H / 2 + 34);
+      ctx.font = '600 18px "Segoe UI", sans-serif';
+      ctx.fillStyle = '#7ff5ff';
+      ctx.fillText('▶ tap to resume', W / 2, H / 2 + 38);
       ctx.textAlign = 'start';
     }
 
@@ -1607,9 +1638,9 @@
       const myName = localStorage.getItem('ng-name');
       if (!myName || !LB_URL) return;
       const yd = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      const rows = await lbTop10(yd);
+      const rows = await lbAll(yd);
       const idx = rows.findIndex(e => e.n === myName);
-      if (idx >= 0) document.getElementById('ybadge').textContent = T('yRank').replace('{n}', idx + 1);
+      if (idx >= 0) { yRankIdx = idx; document.getElementById('ybadge').textContent = T('yRank').replace('{n}', idx + 1); }
     } catch (_) {}
   })();
 
