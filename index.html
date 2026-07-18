@@ -20,7 +20,7 @@
     touch-action: none;
     -webkit-user-select: none; user-select: none;
   }
-  #game { display: block; width: 100vw; height: 100vh; }
+  #game { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   .overlay {
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
@@ -177,15 +177,24 @@
   #lb-nav button:disabled { opacity: 0.25; cursor: default; }
   #next-course { font-size: 13px; color: #9f97ff; }
   #ybadge { font-size: 14px; color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
-  #rotate-overlay {
-    position: fixed; inset: 0; z-index: 40;
-    display: none;
-    align-items: center; justify-content: center;
-    background: #05010f;
-    color: #bffaff; font-size: 20px; font-weight: 700;
-    text-align: center; padding: 30px;
+  /* 회전 컨테이너: 세로로 들면 게임 전체를 가로로 회전시켜 화면을 꽉 채움 */
+  #rotator { position: fixed; inset: 0; overflow: hidden; }
+  #rotator.rot {
+    inset: auto; top: 0; left: 100vw;
+    width: 100vh; height: 100vw;
+    transform: rotate(90deg);
+    transform-origin: top left;
   }
-  #rotate-overlay.show { display: flex; }
+  #fs-btn {
+    position: fixed; right: 14px; bottom: 14px; z-index: 15;
+    width: 46px; height: 46px; padding: 0;
+    font-size: 22px; line-height: 46px; text-align: center;
+    color: #bffaff;
+    background: rgba(10, 5, 30, 0.7);
+    border: 1px solid rgba(0, 240, 255, 0.5);
+    border-radius: 12px;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  }
 
   /* 모바일 / 낮은 화면: 게임오버·시작 화면이 스크롤 없이 한 번에 보이도록 압축 */
   @media (max-width: 680px), (max-height: 560px) {
@@ -230,9 +239,11 @@
 </style>
 </head>
 <body>
+<div id="rotator">
 <canvas id="game"></canvas>
 <div id="hud"><span id="score-live"></span><span id="mult-badge"></span><span id="gate-badge"></span></div>
 <div id="mute">🔊</div>
+<button id="fs-btn" title="Fullscreen">⛶</button>
 <select id="lang"></select>
 
 <div class="overlay" id="start-screen">
@@ -278,7 +289,7 @@
 </div>
 
 <div id="toast"></div>
-<div id="rotate-overlay"><span id="rotate-msg"></span></div>
+</div><!-- /#rotator -->
 
 <script>
 // CrazyGames SDK — 플랫폼에 올라갔을 때만 의미 있음, 로드 실패 시 조용히 무시
@@ -448,7 +459,6 @@
     const savedBest = localStorage.getItem(BEST_KEY);
     document.getElementById('best-start').textContent = savedBest ? `${T('best')}: ${savedBest}` : '';
     document.getElementById('streak').textContent = streakN > 1 ? T('streak').replace('{n}', streakN) : '';
-    document.getElementById('rotate-msg').textContent = T('rotate');
   }
 
   // ---------- 출석 스트릭 ----------
@@ -463,13 +473,21 @@
   // ---------- 캔버스 ----------
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  // 가상 해상도(플레이 필드)를 고정 → 세로·가로·어떤 화면이든 난이도 동일, 화면엔 줌아웃되어 표시
+  // 가상 해상도(플레이 필드)를 고정 → 세로·가로·어떤 화면이든 난이도 동일
   const VW = 1280, VH = 720;
   let W = VW, H = VH, DPR = 1;
   let cssW = 0, cssH = 0, vscale = 1, voffX = 0, voffY = 0;
+  let rotated = false;                                  // 세로 화면에서 게임을 90° 회전해 가로로 표시
+  const isTouch = 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0;
+  const rotatorEl = document.getElementById('rotator');
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 1.5);
-    cssW = window.innerWidth; cssH = window.innerHeight;
+    // 터치 기기 + 세로 화면이면 회전 (전체화면 가로 잠금이 걸리면 화면이 가로가 되어 자동 해제)
+    rotated = (isTouch || location.search.includes('rot')) && window.innerHeight > window.innerWidth;
+    rotatorEl.classList.toggle('rot', rotated);
+    // 회전 시 게임의 화면 폭·높이는 물리 화면의 높이·폭
+    cssW = rotated ? window.innerHeight : window.innerWidth;
+    cssH = rotated ? window.innerWidth : window.innerHeight;
     canvas.width = Math.round(cssW * DPR); canvas.height = Math.round(cssH * DPR);
     canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
     W = VW; H = VH;
@@ -479,6 +497,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 100));
   resize();
 
   // ---------- 상태 ----------
@@ -926,7 +945,9 @@
     if (state !== 'play') return;
     if (primaryPtr !== null && e.pointerId !== primaryPtr) {
       throttlePtr = e.pointerId;
-      if (e.clientX < cssW / 2) { touchBrake = true; touchBoost = false; }
+      // 회전 시 게임의 가로축은 물리 화면의 세로축에 대응
+      const gx = rotated ? e.clientY : e.clientX;
+      if (gx < cssW / 2) { touchBrake = true; touchBoost = false; }
       else { touchBoost = true; touchBrake = false; }
       e.preventDefault(); return;
     }
@@ -1486,8 +1507,26 @@
   setInterval(updateCourseTimer, 1000);
   updateCourseTimer();
 
-  // 모바일: 세로/가로 모두 지원 (가상 해상도로 줌아웃) — 회전 안내 불필요
-  const isTouch = 'ontouchstart' in window;
+  // 전체화면 버튼: 탭하면 가로 전체화면 잠금 시도 (미지원 시 회전 표시로 대체됨)
+  document.getElementById('fs-btn').addEventListener('pointerdown', e => e.stopPropagation());
+  document.getElementById('fs-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    const el = document.documentElement;
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req) {
+        Promise.resolve(req.call(el)).then(() => {
+          try { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); } catch (_) {}
+        }).catch(() => {}).finally(() => setTimeout(resize, 200));
+      }
+    } else {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) { try { exit.call(document); } catch (_) {} }
+      try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (_) {}
+      setTimeout(resize, 200);
+    }
+  });
+  document.addEventListener('fullscreenchange', () => setTimeout(resize, 150));
 
   // 어제 세계 랭킹 배지 (락인 인센티브)
   (async () => {
