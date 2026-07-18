@@ -236,6 +236,17 @@
     outline: none;
   }
   #lb-send { padding: 8px 16px; font-size: 14px; border-radius: 8px; }
+
+  /* 게임오버: 기본은 세로 스택 */
+  #over-left { display: flex; flex-direction: column; align-items: center; gap: 13px; }
+  /* 가로 화면(모바일은 항상 가로): 좌=정보 · 우=리더보드 2단 분할 */
+  body.landscape #over-screen {
+    flex-direction: row; align-items: center; justify-content: center;
+    gap: 5vw; flex-wrap: nowrap;
+  }
+  body.landscape #over-left { gap: 9px; }
+  body.landscape #over-screen #lb-box { align-self: center; }
+  body.landscape #lb-list { max-height: 30vh; }
 </style>
 </head>
 <body>
@@ -264,13 +275,17 @@
 </div>
 
 <div class="overlay hidden" id="over-screen">
-  <div class="sub" id="over-label"></div>
-  <div class="best hidden" id="new-best"></div>
-  <div class="big-score" id="final-score">0</div>
-  <div class="best" id="best-over"></div>
-  <div class="sub" id="reached-line"></div>
-  <div class="sub" id="rank-hint"></div>
-  <div class="seed-tag" id="seed-tag-over"></div>
+  <div id="over-left">
+    <div class="sub" id="over-label"></div>
+    <div class="best hidden" id="new-best"></div>
+    <div class="big-score" id="final-score">0</div>
+    <div class="best" id="best-over"></div>
+    <div class="sub" id="reached-line"></div>
+    <div class="sub" id="rank-hint"></div>
+    <div class="seed-tag" id="seed-tag-over"></div>
+    <button id="btn-share"></button>
+    <button class="ghost" id="btn-retry"></button>
+  </div>
   <div id="lb-box" class="hidden">
     <div class="lb-title" id="lb-title"></div>
     <div id="lb-nav">
@@ -284,8 +299,6 @@
       <button id="lb-send"></button>
     </div>
   </div>
-  <button id="btn-share"></button>
-  <button class="ghost" id="btn-retry"></button>
 </div>
 
 <div id="toast"></div>
@@ -494,6 +507,7 @@
     vscale = Math.min(cssW / VW, cssH / VH);          // contain-fit: 전체 필드가 보이도록
     voffX = (cssW - VW * vscale) / 2;
     voffY = (cssH - VH * vscale) / 2;
+    document.body.classList.toggle('landscape', cssW > cssH * 1.15);   // 게임오버 2단 분할 여부
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
   window.addEventListener('resize', resize);
@@ -556,6 +570,7 @@
     player = { x: 0, y: H / 2, vy: 0, trail: [] };
     speed = 200;                 // px/s
     speedF = 1; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
+    ptrZone.clear();
     energy = 100;
     anchorY = H / 2;
     gatesPassed = +(new URLSearchParams(location.search).get('debug')) || 0;
@@ -939,25 +954,43 @@
   });
 
   // ---------- 입력 ----------
-  // 첫 포인터 = 상승, 두 번째 포인터: 화면 왼쪽 절반 = 감속, 오른쪽 절반 = 가속
-  let primaryPtr = null, throttlePtr = null;
+  // 터치 존: 오른쪽 절반 = 상승(UP) · 왼쪽 위 = 가속 · 왼쪽 아래 = 감속
+  // 마우스: 좌클릭 어디서나 = 상승 · 우클릭 = 감속 (데스크톱)
+  const ptrZone = new Map();
+  function zoneOf(e) {
+    const gx = rotated ? e.clientY : e.clientX;            // 게임 가로축 좌표
+    const gy = rotated ? (cssH - e.clientX) : e.clientY;   // 게임 세로축 좌표
+    if (gx > cssW / 2) return 'rise';                      // 오른쪽 절반 = 상승
+    return gy < cssH / 2 ? 'boost' : 'brake';              // 왼쪽 위 = 가속, 아래 = 감속
+  }
+  function recomputeTouch() {
+    let rise = false, boost = false, brake = false;
+    for (const z of ptrZone.values()) {
+      if (z === 'rise') rise = true; else if (z === 'boost') boost = true; else if (z === 'brake') brake = true;
+    }
+    holding = rise; touchBoost = boost; touchBrake = brake;
+  }
   function press(e) {
     if (state !== 'play') return;
-    if (primaryPtr !== null && e.pointerId !== primaryPtr) {
-      throttlePtr = e.pointerId;
-      // 회전 시 게임의 가로축은 물리 화면의 세로축에 대응
-      const gx = rotated ? e.clientY : e.clientX;
-      if (gx < cssW / 2) { touchBrake = true; touchBoost = false; }
-      else { touchBoost = true; touchBrake = false; }
+    if (e.pointerType === 'mouse') {
+      if (e.button === 0) holding = true;                  // 좌클릭 = 상승
       e.preventDefault(); return;
     }
-    primaryPtr = e.pointerId; holding = true; e.preventDefault();
+    ptrZone.set(e.pointerId, zoneOf(e));
+    recomputeTouch();
+    e.preventDefault();
+  }
+  function move(e) {
+    if (e.pointerType === 'mouse') return;
+    if (ptrZone.has(e.pointerId)) { ptrZone.set(e.pointerId, zoneOf(e)); recomputeTouch(); }
   }
   function release(e) {
-    if (e && e.pointerId === throttlePtr) { throttlePtr = null; touchBrake = false; touchBoost = false; return; }
-    holding = false; primaryPtr = null;
+    if (e && e.pointerType === 'mouse') { holding = false; return; }
+    if (e) ptrZone.delete(e.pointerId);
+    recomputeTouch();
   }
   window.addEventListener('pointerdown', press);
+  window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', release);
   window.addEventListener('pointercancel', release);
   // 마우스 우클릭 = 브레이크
@@ -1482,6 +1515,23 @@
       ctx.font = '600 16px "Segoe UI", sans-serif';
       ctx.fillText('P / Esc', W / 2, H / 2 + 34);
       ctx.textAlign = 'start';
+    }
+
+    // 터치 존 안내 (터치 기기, 게임 초반 몇 초간 표시 후 페이드) — 게임 화면(디바이스) 좌표
+    if (state === 'play' && isTouch && elapsed < 6) {
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      const fade = elapsed > 4.5 ? (6 - elapsed) / 1.5 : 1;
+      ctx.strokeStyle = '#bffaff'; ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.1 * fade;
+      ctx.beginPath(); ctx.moveTo(cssW / 2, 0); ctx.lineTo(cssW / 2, cssH); ctx.stroke();   // 좌/우 분할
+      ctx.beginPath(); ctx.moveTo(0, cssH / 2); ctx.lineTo(cssW / 2, cssH / 2); ctx.stroke(); // 왼쪽 상/하 분할
+      ctx.globalAlpha = 0.3 * fade;
+      ctx.fillStyle = '#bffaff'; ctx.textAlign = 'center';
+      ctx.font = '700 15px "Segoe UI", sans-serif';
+      ctx.fillText('⏩', cssW * 0.25, cssH * 0.27);          // 왼쪽 위 = 가속
+      ctx.fillText('⏪', cssW * 0.25, cssH * 0.77);          // 왼쪽 아래 = 감속
+      ctx.fillText('☝ UP', cssW * 0.75, cssH * 0.5);        // 오른쪽 = 상승
+      ctx.textAlign = 'start'; ctx.globalAlpha = 1;
     }
   }
 
