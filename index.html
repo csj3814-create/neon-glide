@@ -128,6 +128,11 @@
     font-size: 24px; cursor: pointer; opacity: 0.75;
   }
   #mute:hover { opacity: 1; }
+  #pause-btn {
+    position: fixed; top: 14px; right: 58px; z-index: 15;
+    font-size: 22px; cursor: pointer; opacity: 0.75;
+  }
+  #pause-btn:hover { opacity: 1; }
   #lang {
     position: fixed; top: 16px; left: 16px; z-index: 15;
     background: rgba(10, 5, 30, 0.85);
@@ -215,6 +220,7 @@
     #mult-badge { font-size: 15px !important; }
     #gate-badge { font-size: 12px !important; }
     #mute { font-size: 20px; top: 8px; right: 12px; }
+    #pause-btn { font-size: 19px; top: 8px; right: 46px; }
     #lang { top: 8px; left: 8px; font-size: 12px; padding: 3px 5px; }
   }
   /* 아주 낮은 가로 화면(모바일 landscape)에서 리더보드 더 축소 */
@@ -246,13 +252,14 @@
   }
   body.landscape #over-left { gap: 9px; }
   body.landscape #over-screen #lb-box { align-self: center; }
-  body.landscape #lb-list { max-height: 30vh; }
+  body.landscape #lb-list { max-height: 260px; }   /* Top 10 전체가 스크롤 없이 */
 </style>
 </head>
 <body>
 <div id="rotator">
 <canvas id="game"></canvas>
 <div id="hud"><span id="score-live"></span><span id="mult-badge"></span><span id="gate-badge"></span></div>
+<div id="pause-btn" title="Pause">⏸</div>
 <div id="mute">🔊</div>
 <button id="fs-btn" title="Fullscreen">⛶</button>
 <select id="lang"></select>
@@ -998,10 +1005,14 @@
   window.addEventListener('mouseup', e => { if (e.button === 2) mouseBrake = false; });
   window.addEventListener('contextmenu', e => { if (state === 'play') e.preventDefault(); });
   // 키보드: Space/W 상승 · A 감속 · D 가속 · P/Esc 일시정지
+  const pauseBtn = document.getElementById('pause-btn');
   function togglePause() {
     if (state === 'play') state = 'paused';
     else if (state === 'paused') state = 'play';
+    pauseBtn.textContent = state === 'paused' ? '▶' : '⏸';
   }
+  pauseBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  pauseBtn.addEventListener('click', e => { e.stopPropagation(); togglePause(); });
   window.addEventListener('keydown', e => {
     if (e.code === 'Space' || e.code === 'KeyW') {
       if (state === 'play') { holding = true; e.preventDefault(); }
@@ -1470,20 +1481,6 @@
           ctx.globalAlpha = 1;
         }
         ctx.restore();
-        // 속도감 연출: 스피드라인 개수 = 현재 속도 (브레이크≈0줄 · 정상≈6줄 · 부스트≈15줄)
-        if (state === 'play') {
-          const nLines = Math.max(0, Math.floor((speedF - 0.5) * 13));
-          if (nLines > 0) {
-            ctx.strokeStyle = speedF > 1.15 ? '#39ff88' : '#9fd8ff';
-            ctx.lineWidth = 2;
-            for (let i = 0; i < nLines; i++) {
-              const y = Math.random() * H, x0 = Math.random() * W, len = (50 + Math.random() * 130) * speedF;
-              ctx.globalAlpha = 0.1 + Math.random() * 0.22;
-              ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 - len, y); ctx.stroke();
-            }
-            ctx.globalAlpha = 1;
-          }
-        }
       }
     }
     ctx.restore();
@@ -1517,21 +1514,47 @@
       ctx.textAlign = 'start';
     }
 
-    // 터치 존 안내 (터치 기기, 게임 초반 몇 초간 표시 후 페이드) — 게임 화면(디바이스) 좌표
-    if (state === 'play' && isTouch && elapsed < 6) {
+    // 속도감 스피드라인 (전체 화면, 디바이스 좌표) — 선 개수·길이·밝기로 빠르고 느림을 체감
+    if (state === 'play') {
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      const fade = elapsed > 4.5 ? (6 - elapsed) / 1.5 : 1;
-      ctx.strokeStyle = '#bffaff'; ctx.lineWidth = 1;
-      ctx.globalAlpha = 0.1 * fade;
-      ctx.beginPath(); ctx.moveTo(cssW / 2, 0); ctx.lineTo(cssW / 2, cssH); ctx.stroke();   // 좌/우 분할
-      ctx.beginPath(); ctx.moveTo(0, cssH / 2); ctx.lineTo(cssW / 2, cssH / 2); ctx.stroke(); // 왼쪽 상/하 분할
-      ctx.globalAlpha = 0.3 * fade;
-      ctx.fillStyle = '#bffaff'; ctx.textAlign = 'center';
-      ctx.font = '700 15px "Segoe UI", sans-serif';
-      ctx.fillText('⏩', cssW * 0.25, cssH * 0.27);          // 왼쪽 위 = 가속
-      ctx.fillText('⏪', cssW * 0.25, cssH * 0.77);          // 왼쪽 아래 = 감속
-      ctx.fillText('☝ UP', cssW * 0.75, cssH * 0.5);        // 오른쪽 = 상승
-      ctx.textAlign = 'start'; ctx.globalAlpha = 1;
+      const boost = speedF > 1.12, brake = speedF < 0.9;
+      const nLines = boost ? 30 : (brake ? 4 : 13);
+      const col = boost ? '#5bff9d' : (brake ? '#6f9dff' : '#cfe8ff');
+      ctx.strokeStyle = col; ctx.lineCap = 'round';
+      for (let i = 0; i < nLines; i++) {
+        const y = Math.random() * cssH;
+        const x0 = Math.random() * cssW;
+        const len = boost ? (140 + Math.random() * 220) : (brake ? (14 + Math.random() * 26) : (60 + Math.random() * 110));
+        ctx.globalAlpha = (boost ? 0.45 : brake ? 0.3 : 0.22) * (0.55 + Math.random() * 0.45);
+        ctx.lineWidth = boost ? 3 : (brake ? 2.5 : 1.8);
+        ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 - len, y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+    }
+
+    // 터치 존 안내 (터치 기기, 게임 초반 몇 초간 크게 표시 후 페이드) — 디바이스 좌표
+    if (state === 'play' && isTouch && elapsed < 6.5) {
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      const fade = elapsed > 4.5 ? Math.max(0, (6.5 - elapsed) / 2) : 1;
+      const R = Math.min(cssW, cssH) * 0.13;             // 버튼 크기
+      const zones = [
+        [cssW * 0.25, cssH * 0.27, '⏩', 'BOOST', '#39ff88'],   // 왼쪽 위 = 가속
+        [cssW * 0.25, cssH * 0.73, '⏪', 'BRAKE', '#00f0ff'],   // 왼쪽 아래 = 감속
+        [cssW * 0.75, cssH * 0.5,  '☝', 'UP',    '#ffe14d'],   // 오른쪽 = 상승
+      ];
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const [x, y, icon, label, c] of zones) {
+        ctx.globalAlpha = 0.16 * fade; ctx.fillStyle = c;
+        ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.fill();
+        ctx.globalAlpha = 0.7 * fade; ctx.strokeStyle = c; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.stroke();
+        ctx.globalAlpha = 0.95 * fade; ctx.fillStyle = '#fff';
+        ctx.font = `${Math.round(R * 0.9)}px "Segoe UI", sans-serif`;
+        ctx.fillText(icon, x, y - R * 0.12);
+        ctx.fillStyle = c; ctx.font = `700 ${Math.round(R * 0.32)}px "Segoe UI", sans-serif`;
+        ctx.fillText(label, x, y + R * 0.62);
+      }
+      ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = 1;
     }
   }
 
