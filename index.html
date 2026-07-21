@@ -874,6 +874,39 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // ---------- 글로벌 리더보드 (Firebase Realtime DB REST) ----------
   // LB_URL이 비어 있으면 리더보드 UI는 숨겨진다. 예: 'https://xxxx-default-rtdb.firebaseio.com/neonglide'
   const LB_URL = 'https://neon-glide-6e378-default-rtdb.firebaseio.com/neonglide';
+  // 익명 인증: 사용자는 아무것도 하지 않지만 기기마다 고유 신원이 생겨
+  // 이름 도용과 가짜 점수 주입을 막는다 (웹 API 키는 공개용 식별자이며 보안은 DB 규칙이 담당)
+  const FB_KEY = 'AIzaSyCTbkVoTWnosOqmH23Ijksq_pT3edeAtXA';
+  let authTok = null, authUid = null, authExp = 0;
+  async function ensureAuth() {
+    if (authTok && Date.now() < authExp - 60000) return authTok;
+    const saveTok = j => {
+      authTok = j.idToken || j.id_token;
+      authUid = j.localId || j.user_id;
+      authExp = Date.now() + (+(j.expiresIn || j.expires_in) || 3600) * 1000;
+      try { localStorage.setItem('ng-rt', j.refreshToken || j.refresh_token); } catch (_) {}
+      return authTok;
+    };
+    const rt = localStorage.getItem('ng-rt');
+    if (rt) {
+      try {
+        const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(rt)
+        });
+        if (r.ok) return saveTok(await r.json());
+      } catch (_) {}
+    }
+    try {
+      const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FB_KEY}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ returnSecureToken: true })
+      });
+      if (r.ok) return saveTok(await r.json());
+    } catch (_) {}
+    return null;                       // 인증 실패 시엔 조용히 포기 (게임 진행에는 영향 없음)
+  }
+  ensureAuth();                        // 시작하자마자 백그라운드로 신원 확보
   const lbBox = document.getElementById('lb-box');
   const lbList = document.getElementById('lb-list');
   const lbName = document.getElementById('lb-name');
@@ -893,14 +926,19 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   }
   // 전 세계 전체 순위 리스트 (해당 UTC 날짜, 이름별 최고 기록, 내림차순)
   async function lbAll(date) {
-    const r = await fetch(`${LB_URL}/scores.json?orderBy="s"&limitToLast=500`);
-    if (!r.ok) throw new Error('lb fetch failed');
-    const data = await r.json() || {};
+    // 신규(인증된 v2)와 레거시 기록을 함께 읽어 과거 순위도 그대로 보이게 한다
+    const [fresh, legacy] = await Promise.all([
+      fetch(`${LB_URL}/v2/${date}.json`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${LB_URL}/scores.json?orderBy="s"&limitToLast=500`).then(r => r.ok ? r.json() : null).catch(() => null)
+    ]);
+    if (fresh === null && legacy === null) throw new Error('lb fetch failed');
     const bestByName = {};
-    for (const e of Object.values(data)) {
-      if (!e || typeof e.s !== 'number' || !e.n || e.d !== date) continue;
+    const add = e => {
+      if (!e || typeof e.s !== 'number' || !e.n || e.d !== date) return;
       if (!bestByName[e.n] || e.s > bestByName[e.n].s) bestByName[e.n] = e;
-    }
+    };
+    if (fresh) Object.values(fresh).forEach(add);
+    if (legacy) Object.values(legacy).forEach(add);
     return Object.values(bestByName)
       .sort((a, b) => b.s - a.s)
       .slice(0, 150);
@@ -971,13 +1009,25 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     lbName.disabled = false;
     submitRow.style.display = '';
   }
-  // 실제 점수 전송 (성공 시 캐시 무효화 후 리로드)
+  // 실제 점수 전송: 익명 인증 신원으로 날짜별 자기 칸에만 기록 (규칙이 경신만 허용).
+  // 인증을 아직 쓸 수 없는 환경에서는 레거시 경로로 폴백해 제출이 끊기지 않게 한다.
   async function postScore(name) {
-    await fetch(`${LB_URL}/scores.json`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ n: name, s: score, d: dateStr, t: Date.now() })
-    });
+    const payload = JSON.stringify({ n: name, s: score, d: dateStr, t: Date.now() });
+    const tok = await ensureAuth();
+    let done = false;
+    if (tok && authUid) {
+      const res = await fetch(`${LB_URL}/v2/${dateStr}/${authUid}.json?auth=${encodeURIComponent(tok)}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: payload
+      });
+      // 기존 최고기록보다 낮으면 규칙이 거부(401/403) — 정상 동작이므로 성공으로 간주
+      done = res.ok || res.status === 401 || res.status === 403;
+    }
+    if (!done) {
+      const res2 = await fetch(`${LB_URL}/scores.json`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload
+      });
+      if (!res2.ok) throw new Error('post failed ' + res2.status);
+    }
     submittedThisRun = true;
     localStorage.removeItem('ng-lbcache-' + dateStr);   // 방금 올린 내 점수 반영 위해 캐시 폐기
     await refreshLb();

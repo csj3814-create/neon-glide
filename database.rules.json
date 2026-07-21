@@ -1,0 +1,34 @@
+{
+  "rules": {
+    "neonglide": {
+      "scores": {
+        ".read": true,
+        ".indexOn": ["s"],
+        "$id": {
+          ".write": "newData.exists() && !data.exists()",
+          ".validate": "newData.hasChildren(['n','s','d','t'])",
+          "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 12" },
+          "s": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200000" },
+          "d": { ".validate": "newData.isString() && newData.val().length == 10" },
+          "t": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      },
+      "v2": {
+        "$date": {
+          ".read": true,
+          ".indexOn": ["s"],
+          "$uid": {
+            ".write": "auth != null && auth.uid == $uid && newData.exists() && (!data.exists() || newData.child('s').val() > data.child('s').val())",
+            ".validate": "newData.hasChildren(['n','s','d','t']) && newData.child('d').val() == $date",
+            "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 12" },
+            "s": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200000" },
+            "d": { ".validate": "newData.isString() && newData.val().length == 10" },
+            "t": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    }
+  }
+}
