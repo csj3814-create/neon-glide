@@ -125,7 +125,24 @@
     font-size: 22px;
     animation: feverPulse 0.4s infinite alternate;
   }
-  #new-best.hidden, #rank-hint.hidden, #btn-install.hidden { display: none; }
+  #new-best.hidden, #rank-hint.hidden, #btn-install.hidden, #privacy-box.hidden { display: none; }
+  /* 개인정보 안내는 항상 보이되, 시작 버튼의 시선을 뺏지 않도록 작고 조용하게 */
+  .linky {
+    background: none; border: none; box-shadow: none;
+    color: rgba(150, 165, 205, 0.75);
+    font-size: 12px; letter-spacing: 0.04em;
+    text-decoration: underline; text-underline-offset: 3px;
+    padding: 6px 10px; margin-top: 10px; cursor: pointer;
+  }
+  .linky:hover { color: #cfe3ff; }
+  .legal {
+    max-width: 560px; margin: 8px auto 0;
+    font-size: 12px; line-height: 1.6;
+    color: rgba(178, 190, 224, 0.92);
+    background: rgba(10, 6, 30, 0.72);
+    border: 1px solid rgba(120, 100, 200, 0.35);
+    border-radius: 10px; padding: 12px 16px; text-align: left;
+  }
   #toast {
     position: fixed; bottom: 34px; left: 50%;
     transform: translateX(-50%) translateY(20px);
@@ -289,6 +306,8 @@
   <div id="ybadge"></div>
   <button id="btn-start"></button>
   <button class="ghost hidden" id="btn-install"></button>
+  <button class="linky" id="btn-privacy"></button>
+  <div class="legal hidden" id="privacy-box"><span id="privacy-text"></span></div>
 </div>
 
 <div class="overlay hidden" id="revive-screen">
@@ -394,7 +413,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       newBest: '🏆 NEW BEST!', rankIn: '🔥 That is a global TOP 10 score — submit it!', rankNeed: '{n} pts to the global TOP 10', streak: '🔥 {n}-day streak!',
       revive: '🚀 CONTINUE (free ×1)', skipRevive: 'No thanks', reached: 'Reached gate {n}',
       rotate: '📱 Rotate your phone sideways!', nextCourse: '🌍 New course in {t}', yRank: '🏅 Yesterday: world #{n}!',
-      install: '📲 Install as app' },
+      install: '📲 Install as app',
+      privacy: 'Privacy', privacyClose: 'Close',
+      privacyText: 'No account, no tracking, no ads. The only thing that reaches our server is the name you type when you submit a score, along with that score and the date — it is public on the leaderboard. Your device holds an anonymous ID so that only you can improve your own entry, plus your settings and best scores, all in local storage. Clear your browser data and all of it is gone.' },
     ko: { name: '한국어',
       howto: '누르고 있으면 상승, 떼면 하강.<br>A=감속 · D=가속 · P=일시정지 (모바일: 두 번째 손가락 왼쪽=감속·오른쪽=가속).<br>⭐ 별은 배율 부스터 · 벽엔 통로가 2~3개일 수도 · 🔴 레이저는 브레이크로 타이밍을 재세요!<br><b>오늘의 코스는 전 세계 모두 동일합니다.</b>',
       todayCourse: '오늘의 코스', dailyCourse: '데일리 코스', best: '오늘의 최고 기록',
@@ -405,7 +426,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       newBest: '🏆 신기록!', rankIn: '🔥 글로벌 TOP 10 진입 점수예요 — 등록하세요!', rankNeed: '글로벌 TOP 10까지 {n}점', streak: '🔥 {n}일 연속 플레이!',
       revive: '🚀 이어하기 (무료 1회)', skipRevive: '괜찮아요', reached: '게이트 {n}번까지 도달',
       rotate: '📱 휴대폰을 가로로 돌려주세요!', nextCourse: '🌍 다음 코스까지 {t}', yRank: '🏅 어제 세계 {n}위!',
-      install: '📲 앱으로 설치하기' },
+      install: '📲 앱으로 설치하기',
+      privacy: '개인정보', privacyClose: '닫기',
+      privacyText: '계정도, 추적도, 광고도 없습니다. 서버로 전송되는 것은 점수를 등록할 때 직접 입력한 이름과 그 점수·날짜뿐이며, 리더보드에 공개됩니다. 기기에는 본인만 자기 기록을 갱신할 수 있도록 익명 식별자가 저장되고, 설정과 최고 기록도 로컬에 남습니다. 브라우저 데이터를 지우면 전부 사라집니다.' },
     ja: { name: '日本語',
       howto: '押すと上昇、離すと下降。<br>A=減速 · D=加速 · P=一時停止（モバイル: 2本目の指 左=減速・右=加速）。<br>⭐ 星は倍率アップ · 壁の通路は2〜3個のことも · 🔴 レーザーはブレーキで待とう!<br><b>今日のコースは世界中みんな同じ。</b>',
       todayCourse: '今日のコース', dailyCourse: 'デイリーコース', best: '今日のベスト',
@@ -512,6 +535,12 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     document.getElementById('lb-send').textContent = T('submit');
     document.getElementById('btn-revive').textContent = T('revive');
     document.getElementById('btn-skip-revive').textContent = T('skipRevive');
+    // 설치 버튼은 beforeinstallprompt 때 한 번만 채워지므로 언어를 바꾸면 옛 문구가 남는다
+    const ibtn = document.getElementById('btn-install');
+    if (!ibtn.classList.contains('hidden')) ibtn.textContent = T('install');
+    const pbox = document.getElementById('privacy-box');
+    document.getElementById('privacy-text').textContent = T('privacyText');
+    document.getElementById('btn-privacy').textContent = pbox.classList.contains('hidden') ? T('privacy') : T('privacyClose');
     const savedBest = localStorage.getItem(BEST_KEY);
     document.getElementById('best-start').textContent = savedBest ? `${T('best')}: ${savedBest}` : '';
     document.getElementById('streak').textContent = streakN > 1 ? T('streak').replace('{n}', streakN) : '';
@@ -1763,6 +1792,18 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     installPrompt = null;
   });
   window.addEventListener('appinstalled', () => { installPrompt = null; installBtn.classList.add('hidden'); });
+
+  // 개인정보 안내 토글 — 시작 화면은 아무 데나 눌러도 게임이 시작되므로 전파를 막는다
+  const privacyBtn = document.getElementById('btn-privacy');
+  const privacyBox = document.getElementById('privacy-box');
+  privacyBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  privacyBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    privacyBox.classList.toggle('hidden');
+    privacyBtn.textContent = privacyBox.classList.contains('hidden') ? T('privacy') : T('privacyClose');
+  });
+  privacyBox.addEventListener('pointerdown', e => e.stopPropagation());
+  privacyBox.addEventListener('click', e => e.stopPropagation());
 
   // 전체화면 버튼: 탭하면 가로 전체화면 잠금 시도 (미지원 시 회전 표시로 대체됨)
   document.getElementById('fs-btn').addEventListener('pointerdown', e => e.stopPropagation());
