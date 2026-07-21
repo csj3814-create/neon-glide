@@ -1,0 +1,19 @@
+{
+  "name": "NEON GLIDE — Daily Challenge",
+  "short_name": "NEON GLIDE",
+  "description": "One-button neon glider. The whole world flies the same daily course — climb the global Top 10.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#05010f",
+  "theme_color": "#05010f",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

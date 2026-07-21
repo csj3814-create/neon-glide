@@ -9,7 +9,18 @@
 <meta property="og:description" content="One-button neon glider. Same course worldwide every day. Beat your friends!">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://csj3814-create.github.io/neon-glide/">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://csj3814-create.github.io/neon-glide/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://csj3814-create.github.io/neon-glide/icon-512.png">
+<!-- PWA: 홈화면 설치 · 오프라인 플레이 -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#05010f">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NEON GLIDE">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -111,7 +122,7 @@
     font-size: 22px;
     animation: feverPulse 0.4s infinite alternate;
   }
-  #new-best.hidden, #rank-hint.hidden { display: none; }
+  #new-best.hidden, #rank-hint.hidden, #btn-install.hidden { display: none; }
   #toast {
     position: fixed; bottom: 34px; left: 50%;
     transform: translateX(-50%) translateY(20px);
@@ -274,6 +285,7 @@
   <div class="best" id="streak"></div>
   <div id="ybadge"></div>
   <button id="btn-start"></button>
+  <button class="ghost hidden" id="btn-install"></button>
 </div>
 
 <div class="overlay hidden" id="revive-screen">
@@ -324,6 +336,12 @@
   s.onerror = function () {};
   document.head.appendChild(s);
 })();
+// PWA 서비스워커 등록 (file:// 로 열었을 땐 조용히 건너뜀)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
 </script>
 <script>
 (() => {
@@ -361,7 +379,8 @@
       lbTitle: '🏆 Global Top 10', yourName: 'Your name', submit: 'Submit', saved: 'Saved!', loading: 'Loading…', lbError: 'Leaderboard offline',
       newBest: '🏆 NEW BEST!', rankIn: '🔥 That is a global TOP 10 score — submit it!', rankNeed: '{n} pts to the global TOP 10', streak: '🔥 {n}-day streak!',
       revive: '🚀 CONTINUE (free ×1)', skipRevive: 'No thanks', reached: 'Reached gate {n}',
-      rotate: '📱 Rotate your phone sideways!', nextCourse: '🌍 New course in {t}', yRank: '🏅 Yesterday: world #{n}!' },
+      rotate: '📱 Rotate your phone sideways!', nextCourse: '🌍 New course in {t}', yRank: '🏅 Yesterday: world #{n}!',
+      install: '📲 Install as app' },
     ko: { name: '한국어',
       howto: '누르고 있으면 상승, 떼면 하강.<br>A=감속 · D=가속 · P=일시정지 (모바일: 두 번째 손가락 왼쪽=감속·오른쪽=가속).<br>⭐ 별은 배율 부스터 · 벽엔 통로가 2~3개일 수도 · 🔴 레이저는 브레이크로 타이밍을 재세요!<br><b>오늘의 코스는 전 세계 모두 동일합니다.</b>',
       todayCourse: '오늘의 코스', dailyCourse: '데일리 코스', best: '오늘의 최고 기록',
@@ -371,7 +390,8 @@
       lbTitle: '🏆 글로벌 Top 10', yourName: '이름', submit: '등록', saved: '저장 완료!', loading: '불러오는 중…', lbError: '리더보드 오프라인',
       newBest: '🏆 신기록!', rankIn: '🔥 글로벌 TOP 10 진입 점수예요 — 등록하세요!', rankNeed: '글로벌 TOP 10까지 {n}점', streak: '🔥 {n}일 연속 플레이!',
       revive: '🚀 이어하기 (무료 1회)', skipRevive: '괜찮아요', reached: '게이트 {n}번까지 도달',
-      rotate: '📱 휴대폰을 가로로 돌려주세요!', nextCourse: '🌍 다음 코스까지 {t}', yRank: '🏅 어제 세계 {n}위!' },
+      rotate: '📱 휴대폰을 가로로 돌려주세요!', nextCourse: '🌍 다음 코스까지 {t}', yRank: '🏅 어제 세계 {n}위!',
+      install: '📲 앱으로 설치하기' },
     ja: { name: '日本語',
       howto: '押すと上昇、離すと下降。<br>A=減速 · D=加速 · P=一時停止（モバイル: 2本目の指 左=減速・右=加速）。<br>⭐ 星は倍率アップ · 壁の通路は2〜3個のことも · 🔴 レーザーはブレーキで待とう!<br><b>今日のコースは世界中みんな同じ。</b>',
       todayCourse: '今日のコース', dailyCourse: 'デイリーコース', best: '今日のベスト',
@@ -448,7 +468,8 @@
     const nav = (navigator.language || 'en').toLowerCase();
     lang = Object.keys(I18N).find(k => nav.startsWith(k)) || 'en';
   }
-  const T = key => I18N[lang][key];
+  // 번역 누락 시 영어로 폴백 (새 키를 9개 언어에 모두 넣지 않아도 안전)
+  const T = key => (I18N[lang] && I18N[lang][key]) || I18N.en[key] || '';
 
   const langSel = document.getElementById('lang');
   for (const k of Object.keys(I18N)) {
@@ -1659,6 +1680,25 @@
   }
   setInterval(updateCourseTimer, 1000);
   updateCourseTimer();
+
+  // PWA 설치 버튼: 브라우저가 설치 가능하다고 알려줄 때만 노출
+  let installPrompt = null;
+  const installBtn = document.getElementById('btn-install');
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    installPrompt = e;
+    installBtn.textContent = T('install');
+    installBtn.classList.remove('hidden');
+  });
+  installBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  installBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (!installPrompt) return;
+    installBtn.classList.add('hidden');
+    try { installPrompt.prompt(); await installPrompt.userChoice; } catch (_) {}
+    installPrompt = null;
+  });
+  window.addEventListener('appinstalled', () => { installPrompt = null; installBtn.classList.add('hidden'); });
 
   // 전체화면 버튼: 탭하면 가로 전체화면 잠금 시도 (미지원 시 회전 표시로 대체됨)
   document.getElementById('fs-btn').addEventListener('pointerdown', e => e.stopPropagation());
