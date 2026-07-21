@@ -1,3 +1,7 @@
 .claude/
 .omc/
 dist/
+
+# 트레일러 원본·출력 영상은 수백 MB까지 가므로 저장소에 넣지 않는다
+promo/*.webm
+promo/*.mp4

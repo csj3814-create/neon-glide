@@ -1,0 +1,108 @@
+<!-- 녹화본에서 트레일러용 구간만 잘라내는 도구.
+     이 PC에 ffmpeg가 없어서 브라우저 안에서 처리한다 — 원본을 캔버스로 재생하며
+     MediaRecorder로 다시 캡처하는 방식이라 별도 설치가 필요 없다.
+     http://localhost:8080/promo/trim.html 로 연다. -->
+<meta charset="utf-8">
+<title>NEON GLIDE — 구간 잘라내기</title>
+<style>
+  body { margin: 0; padding: 24px; background: #0a0618; color: #e8ecf8;
+         font: 14px/1.6 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.hint { color: #97a3c8; margin: 0 0 18px; }
+  video { width: 100%; max-width: 900px; background: #000; border-radius: 8px; display: block; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  button { background: #7a5cff; color: #fff; border: 0; border-radius: 8px;
+           padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.alt { background: #223; color: #cfe0ff; }
+  input[type=number] { width: 74px; background: #17122e; color: #fff;
+                       border: 1px solid #3b3068; border-radius: 6px; padding: 8px; }
+  #log { margin-top: 16px; padding: 12px 14px; background: #120e28; border-radius: 8px;
+         white-space: pre-wrap; min-height: 22px; color: #b9c6ea; }
+  b { color: #6ee7ff; }
+</style>
+
+<h1>NEON GLIDE — 트레일러 구간 잘라내기</h1>
+<p class="hint">재생하며 원하는 시작 지점에서 멈춘 뒤, 길이를 정하고 내보내세요. 결과는 다운로드 폴더에 저장됩니다.</p>
+
+<video id="v" src="/promo/gameplay-raw.webm" controls preload="metadata"></video>
+
+<div class="row">
+  <label>길이 <input type="number" id="dur" value="20" min="3" max="140" step="1"> 초</label>
+  <label>화질 <input type="number" id="mbps" value="6" min="2" max="16" step="1"> Mbps</label>
+  <button id="go">이 지점부터 내보내기</button>
+  <button id="back5" class="alt">← 5초</button>
+  <button id="fwd5" class="alt">5초 →</button>
+</div>
+
+<div id="log">준비됨.</div>
+
+<script>
+  const v = document.getElementById('v');
+  const log = document.getElementById('log');
+  const go = document.getElementById('go');
+  const say = m => { log.textContent = m; };
+
+  document.getElementById('back5').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 5); };
+  document.getElementById('fwd5').onclick  = () => { v.currentTime = Math.min(v.duration || 0, v.currentTime + 5); };
+
+  v.addEventListener('loadedmetadata', () => {
+    say('원본 ' + v.videoWidth + 'x' + v.videoHeight + ' · ' + v.duration.toFixed(1) + '초. 시작 지점을 찾아 멈춰주세요.');
+  });
+
+  go.onclick = async () => {
+    const start = v.currentTime;
+    const dur = Math.min(+document.getElementById('dur').value, (v.duration - start));
+    if (!(dur > 0)) { say('남은 길이가 부족합니다. 더 앞 지점을 고르세요.'); return; }
+    go.disabled = true;
+
+    // 원본 해상도 그대로 다시 그린다 — 재인코딩 손실만 있고 크롭은 이미 끝난 상태다
+    const cv = document.createElement('canvas');
+    cv.width = v.videoWidth; cv.height = v.videoHeight;
+    const cx = cv.getContext('2d');
+
+    // X·인스타그램은 WebM을 받지 않는다. MP4(H.264)가 가능하면 그걸로 낸다.
+    const mime = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')
+      ? 'video/mp4;codecs=avc1' : 'video/webm;codecs=vp9';
+    const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+
+    const stream = cv.captureStream(60);
+    const rec = new MediaRecorder(stream, {
+      mimeType: mime,
+      videoBitsPerSecond: (+document.getElementById('mbps').value) * 1000000
+    });
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: mime.split(';')[0] });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'neon-glide-trailer-' + Math.round(start) + 's.' + ext;
+      document.body.appendChild(a); a.click();
+      say('완료 — ' + dur.toFixed(1) + '초, ' + (blob.size / 1048576).toFixed(1) + ' MB, ' + ext.toUpperCase() + '. 다운로드 폴더를 확인하세요.');
+      go.disabled = false;
+    };
+
+    v.pause();
+    v.currentTime = start;
+    await new Promise(r => v.addEventListener('seeked', r, { once: true }));
+
+    let raf;
+    const draw = () => { cx.drawImage(v, 0, 0, cv.width, cv.height); raf = requestAnimationFrame(draw); };
+    draw();
+    rec.start(500);
+    v.play();
+
+    const t0 = performance.now();
+    const watch = setInterval(() => {
+      const done = (performance.now() - t0) / 1000;
+      say('내보내는 중… ' + done.toFixed(1) + ' / ' + dur.toFixed(1) + '초');
+      if (done >= dur || v.ended) {
+        clearInterval(watch);
+        cancelAnimationFrame(raf);
+        v.pause();
+        rec.stop();
+      }
+    }, 200);
+  };
+</script>
