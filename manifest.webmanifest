@@ -10,7 +10,14 @@
   "orientation": "landscape",
   "background_color": "#05010f",
   "theme_color": "#05010f",
+  "lang": "en",
+  "dir": "ltr",
   "categories": ["games", "entertainment"],
+  "screenshots": [
+    { "src": "screenshot-1.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "Boosting through a gate for a bonus" },
+    { "src": "screenshot-3.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "A deep run at full multiplier, trailing rainbow light" },
+    { "src": "screenshot-2.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "Collecting stars between numbered gates" }
+  ],
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

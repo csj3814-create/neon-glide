@@ -13,7 +13,8 @@ Set-Location $root
 
 # itch.io 빌드에 들어가는 파일 목록 (게임 + PWA 자산)
 $assets = @('index.html', 'manifest.webmanifest', 'sw.js',
-            'icon-192.png', 'icon-512.png', 'icon-maskable-512.png')
+            'icon-192.png', 'icon-512.png', 'icon-maskable-512.png',
+            'screenshot-1.png', 'screenshot-2.png', 'screenshot-3.png')
 
 # --- 1. 문법 검사: 깨진 스크립트를 배포하면 게임이 검은 화면이 된다 ---
 $html = [System.IO.File]::ReadAllText("$root\index.html", [System.Text.Encoding]::UTF8)
