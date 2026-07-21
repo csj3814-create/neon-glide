@@ -3,16 +3,8 @@
     "neonglide": {
       "scores": {
         ".read": true,
-        ".indexOn": ["s"],
-        "$id": {
-          ".write": "newData.exists() && !data.exists()",
-          ".validate": "newData.hasChildren(['n','s','d','t'])",
-          "n": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 12" },
-          "s": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200000" },
-          "d": { ".validate": "newData.isString() && newData.val().length == 10" },
-          "t": { ".validate": "newData.isNumber()" },
-          "$other": { ".validate": false }
-        }
+        ".write": false,
+        ".indexOn": ["s"]
       },
       "v2": {
         "$date": {

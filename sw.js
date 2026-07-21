@@ -1,6 +1,6 @@
 // NEON GLIDE service worker — 오프라인 플레이 + 빠른 재실행
 // 게임 셸은 캐시에서 즉시 띄우고, 백그라운드로 최신본을 받아 다음 실행에 반영한다.
-const CACHE = 'neon-glide-v1';
+const CACHE = 'neon-glide-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
