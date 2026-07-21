@@ -31,9 +31,17 @@ Write-Host "[1/3] 문법 검사 통과 (인라인 스크립트 $($i)개)" -Foreg
 # --- 2. GitHub Pages ---
 if (-not $ItchOnly) {
   if (-not $Message) { throw '커밋 메시지가 필요합니다. -ItchOnly 를 쓰면 커밋을 건너뜁니다.' }
-  git add -A
-  git commit -m $Message
-  git push
+  # git은 경고와 진행 상황을 stderr로 내보내는데, ErrorActionPreference=Stop이 이걸
+  # 실패로 오인해 배포가 중간에 끊긴다. git 구간에서는 종료 코드로만 판단한다.
+  $ErrorActionPreference = 'Continue'
+  git add -A 2>&1 | Out-String | Write-Host
+  git commit -m $Message 2>&1 | Out-String | Write-Host
+  $committed = $LASTEXITCODE
+  git push 2>&1 | Out-String | Write-Host
+  $pushed = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($committed -ne 0) { throw "git commit 실패 (exit $committed) — 변경사항이 없을 수도 있습니다" }
+  if ($pushed -ne 0) { throw "git push 실패 (exit $pushed)" }
   Write-Host '[2/3] GitHub Pages 푸시 완료 (빌드까지 ~1분)' -ForegroundColor Green
 } else {
   Write-Host '[2/3] GitHub Pages 건너뜀 (-ItchOnly)' -ForegroundColor DarkGray

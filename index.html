@@ -334,7 +334,18 @@
   s.src = 'https://sdk.crazygames.com/crazygames-sdk-v3.js';
   s.async = true;
   s.onload = function () {
-    try { window.CrazyGames.SDK.init().catch(function () {}); } catch (e) {}
+    // 로딩 구간을 알려주지 않으면 CrazyGames가 완료 시점을 못 잡아 대기 시간을 계속 센다.
+    // 이 게임은 파일 하나라 SDK가 준비되는 순간 이미 플레이 가능한 상태다.
+    try {
+      window.CrazyGames.SDK.init()
+        .then(function () {
+          try {
+            window.CrazyGames.SDK.game.loadingStart();
+            window.CrazyGames.SDK.game.loadingStop();
+          } catch (e) {}
+        })
+        .catch(function () {});
+    } catch (e) {}
   };
   s.onerror = function () {};
   document.head.appendChild(s);
