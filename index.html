@@ -511,7 +511,7 @@
   const isTouch = 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0;
   const rotatorEl = document.getElementById('rotator');
   function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+    DPR = Math.min(window.devicePixelRatio || 1, 1.25);   // 픽셀 수를 줄여 렌더 부담 완화
     // 터치 기기 + 세로 화면이면 회전 (전체화면 가로 잠금이 걸리면 화면이 가로가 되어 자동 해제)
     rotated = (isTouch || location.search.includes('rot')) && window.innerHeight > window.innerWidth;
     rotatorEl.classList.toggle('rot', rotated);
@@ -549,6 +549,18 @@
   let speedF = 1;                          // 브레이크/부스트 속도 배율
   let keyThrottle = 0, mouseBrake = false, touchBrake = false, touchBoost = false;
   let energy = 100;                        // 가감속 에너지 (부스트/브레이크 소모, 순항 시 회복)
+  let invulnT = 0;                         // MAX 방패 발동 후 무적 시간
+  // MAX 모드(×10) 방패: 벽 −10★, 레이저 −5★ 하며 살아남기. 방패 발동 성공 시 true
+  function maxShield(cost) {
+    if (mult < 10) return false;
+    mult = Math.max(1, mult - cost);
+    updateHud();
+    popup(player.x + 22, player.y - 42, '🛡 −' + cost + '★', '#ffe14d');
+    burst(player.x, player.y, '#ffe14d', 18);
+    invulnT = cost >= 10 ? 1.1 : 0.8;
+    shakeT = 0.22;
+    return true;
+  }
   let anchorY = 0;                         // 도달 가능성 보정용 이전 게이트 기준점
   let gateSeq = 0;                         // 게이트 일련번호
   let reviveUsed = false, reviveTimer = null;
@@ -573,7 +585,7 @@
 
   function seededStars(seedRng) {
     const arr = [];
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 58; i++) {
       arr.push({
         x: seedRng() * 1.2, y: seedRng(),
         r: 0.6 + seedRng() * 1.6,
@@ -596,6 +608,7 @@
     speedF = 1; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
     ptrZone.clear();
     energy = 100;
+    invulnT = 0;
     anchorY = H / 2;
     gatesPassed = +(new URLSearchParams(location.search).get('debug')) || 0;
     gateSeq = gatesPassed;
@@ -1083,25 +1096,40 @@
         life: 0.4 + Math.random() * 0.4, color: `hsl(${(elapsed * 300 + Math.random() * 80) % 360},100%,65%)` });
     }
 
+    if (invulnT > 0) { invulnT -= dt; player.y = Math.max(20, Math.min(H - 20, player.y)); }
+
     // 천장/바닥 충돌
-    if (player.y < 14 || player.y > H - 14) return die();
+    if (invulnT <= 0 && (player.y < 14 || player.y > H - 14)) {
+      if (maxShield(10)) { player.y = player.y < H / 2 ? 70 : H - 70; player.vy = 0; }
+      else return die();
+    }
 
     // 게이트 이동/충돌/점수
     dist += spd * dt;
     for (const g of gates) {
       g.x -= spd * dt;
       const gateW = 26;
-      if (Math.abs(g.x - px) < gateW / 2 + 12) {
+      if (invulnT <= 0 && Math.abs(g.x - px) < gateW / 2 + 12) {
         const dy = gateDY(g);
         let inGap = null;
         for (const gp2 of g.gaps) {
           const half = gapHalf(g, gp2), c = gp2.cy + dy;
           if (player.y > c - half + 10 && player.y < c + half - 10) { inGap = { gp: gp2, c, half }; break; }
         }
-        if (!inGap) return die();
-        if (inGap.gp.laser && laserOn(inGap.gp.laser)) {
+        if (!inGap) {
+          // 벽 충돌: MAX면 −10★ 하고 가장 가까운 통로로 이동해 생존
+          if (maxShield(10)) {
+            let best = g.gaps[0], bd = Infinity;
+            for (const gp2 of g.gaps) { const d = Math.abs((gp2.cy + dy) - player.y); if (d < bd) { bd = d; best = gp2; } }
+            player.y = best.cy + dy; player.vy = 0;
+          } else return die();
+        } else if (inGap.gp.laser && laserOn(inGap.gp.laser)) {
           const [la, lb] = laserSeg(inGap.gp, inGap.c, inGap.half);
-          if (player.y > la && player.y < lb) return die();
+          if (player.y > la && player.y < lb) {
+            // 레이저 충돌: MAX면 −5★ 하고 통로 반대편으로 밀려나며 생존
+            if (maxShield(5)) { player.y = inGap.gp.segTop ? (inGap.c + inGap.half - 14) : (inGap.c - inGap.half + 14); player.vy = 0; }
+            else return die();
+          }
         }
       }
       if (!g.passed && g.x < px) {
@@ -1259,6 +1287,7 @@
     }
     holding = false; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
     energy = 100;
+    invulnT = 0;
     state = 'play';
     updateHud();
   }
@@ -1329,20 +1358,21 @@
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // 그리드 바닥 (신스웨이브 느낌)
+    // 그리드 바닥 (신스웨이브 느낌) — 한 번의 stroke로 배칭
     ctx.strokeStyle = 'rgba(106, 91, 255, 0.22)';
     ctx.lineWidth = 1;
     const gridOff = (scroll * 0.6) % 70;
-    for (let x = -gridOff; x < W; x += 70) {
-      ctx.beginPath(); ctx.moveTo(x, H * 0.82); ctx.lineTo(x - 90, H); ctx.stroke();
-    }
+    ctx.beginPath();
+    for (let x = -gridOff; x < W; x += 70) { ctx.moveTo(x, H * 0.82); ctx.lineTo(x - 90, H); }
     for (let i = 0; i < 5; i++) {
       const y = H * 0.82 + (H * 0.18) * (i / 4) ** 1.6;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      ctx.moveTo(0, y); ctx.lineTo(W, y);
     }
+    ctx.stroke();
 
     // 게이트 (글로우는 shadowBlur 대신 저비용 반투명 레이어)
     if (state !== 'idle') {
+      const capPts = [];      // 모든 게이트의 통로 끝 캡을 모아 한 번에 그리기 위함
       for (const g of gates) {
         if (g.x < -40 || g.x > W + 40) continue;
         const dy = gateDY(g);
@@ -1357,26 +1387,17 @@
         for (const s of sorted) { segs.push([cur, s.top]); cur = s.bot; }
         segs.push([cur, H + 10]);
         ctx.fillStyle = g.color;
-        for (const [y0, y1] of segs) {
-          const hgt = y1 - y0;
-          if (hgt <= 0) continue;
-          ctx.globalAlpha = 0.13 * pulse;
-          roundRect(g.x - 17, y0, 34, hgt, 12);
-          ctx.globalAlpha = 0.3 * pulse;
-          roundRect(g.x - 12, y0, 24, hgt, 10);
-          ctx.globalAlpha = 1;
-          roundRect(g.x - 8, y0, 16, hgt, 8);
-        }
-        // 통로 양 끝 캡
-        ctx.fillStyle = '#fff';
-        for (const s of sorted) {
-          ctx.globalAlpha = 0.25;
-          ctx.beginPath(); ctx.arc(g.x, s.top, 9 * pulse + 3, 0, 7); ctx.fill();
-          ctx.beginPath(); ctx.arc(g.x, s.bot, 9 * pulse + 3, 0, 7); ctx.fill();
-          ctx.globalAlpha = 1;
-          ctx.beginPath(); ctx.arc(g.x, s.top, 5 * pulse + 2, 0, 7); ctx.fill();
-          ctx.beginPath(); ctx.arc(g.x, s.bot, 5 * pulse + 2, 0, 7); ctx.fill();
-        }
+        // 글로우 레이어 1회 + 코어 1회 = 게이트당 fill 2회로 배칭
+        ctx.globalAlpha = 0.28 * pulse;
+        ctx.beginPath();
+        for (const [y0, y1] of segs) { if (y1 - y0 > 0) ctx.roundRect(g.x - 13, y0, 26, y1 - y0, 10); }
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        for (const [y0, y1] of segs) { if (y1 - y0 > 0) ctx.roundRect(g.x - 8, y0, 16, y1 - y0, 8); }
+        ctx.fill();
+        // 통로 끝 캡은 전 게이트를 모아 마지막에 한 번에 그림
+        for (const s of sorted) capPts.push(g.x, s.top, s.bot, 5 * pulse + 2);
         // 게이트 번호 (크고 잘 보이게) + BEST 깃발
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -1423,6 +1444,18 @@
           }
           ctx.globalAlpha = 1;
         }
+      }
+
+      // 모든 게이트의 통로 끝 캡을 한 번의 fill로
+      if (capPts.length) {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        for (let i = 0; i < capPts.length; i += 4) {
+          const x = capPts[i], tp = capPts[i + 1], bt = capPts[i + 2], r = capPts[i + 3];
+          ctx.moveTo(x + r, tp); ctx.arc(x, tp, r, 0, 7);
+          ctx.moveTo(x + r, bt); ctx.arc(x, bt, r, 0, 7);
+        }
+        ctx.fill();
       }
 
       // 별
@@ -1478,6 +1511,13 @@
         ctx.beginPath(); ctx.arc(p.x, p.y, (maxMode ? 12 : 8) * f + 1, 0, 7); ctx.fill();
       }
       ctx.globalAlpha = 1;
+      // 방패 발동 직후: 금색 보호막 링 점멸
+      if (invulnT > 0 && state === 'play') {
+        ctx.globalAlpha = 0.35 + 0.35 * Math.sin(t * 25);
+        ctx.strokeStyle = '#ffe14d'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(player.x, player.y, 30, 0, 7); ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       // MAX 모드: 기체 주변 무지개 오라
       if (maxMode && (state === 'play' || state === 'paused')) {
         for (let k = 0; k < 3; k++) {
