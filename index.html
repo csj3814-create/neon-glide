@@ -8,13 +8,14 @@
 <meta property="og:title" content="NEON GLIDE — Daily Challenge">
 <meta property="og:description" content="One-button neon glider. Same course worldwide every day. Beat your friends!">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://csj3814-create.github.io/neon-glide/">
-<meta property="og:image" content="https://csj3814-create.github.io/neon-glide/og-card.png">
+<meta property="og:url" content="https://neon.habitschool.kr/">
+<meta property="og:image" content="https://neon.habitschool.kr/og-card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="NEON GLIDE — a neon glider trailing rainbow light past a numbered gate.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://csj3814-create.github.io/neon-glide/og-card.png">
+<meta name="twitter:image" content="https://neon.habitschool.kr/og-card.png">
+<link rel="canonical" href="https://neon.habitschool.kr/">
 <!-- PWA: 홈화면 설치 · 오프라인 플레이 -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#05010f">
@@ -1862,7 +1863,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // ---------- 점수 공유 ----------
   document.getElementById('btn-share').addEventListener('click', async e => {
     e.stopPropagation();
-    const text = T('shareText').replace('{date}', dateStr).replace('{score}', score).replace('{url}', 'https://csj3814-create.github.io/neon-glide/');
+    // 어디서 플레이하든(포털 임베드 포함) 공유는 항상 대표 주소로 보낸다.
+    // 실행 주소를 쓰면 포털 도메인이나 옛 주소가 퍼진다.
+    const text = T('shareText').replace('{date}', dateStr).replace('{score}', score).replace('{url}', 'https://neon.habitschool.kr/');
     try {
       if (navigator.share) {
         await navigator.share({ text });
