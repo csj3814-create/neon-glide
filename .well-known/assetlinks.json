@@ -1,0 +1,11 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.csj3814_create.neonglide",
+        "sha256_cert_fingerprints": [
+          "7E:09:00:70:7B:DA:51:8F:08:AA:57:7B:AF:22:E5:9E:8B:EF:BC:0B:B8:8D:37:87:9A:C1:C9:E0:8F:84:02:38",
+          "C4:EB:9E:5B:8F:DC:0A:9A:4B:22:3C:4B:F5:EA:74:20:10:2F:C8:90:F5:3C:AA:D3:93:FA:C6:84:9A:FC:C4:C7"
+        ]
+      }
+    }]
