@@ -4,7 +4,7 @@
 Wordle이 통한 이유와 같다 — 매일 리셋되고, 모두가 동일한 조건이고, 점수를 비교할 이유가 생긴다.
 게임 자체의 참신함보다 이 구조를 앞세운다.
 
-링크: https://csj3814-create.github.io/neon-glide/ · https://sukjae.itch.io/neon-glide
+링크: https://neon.habitschool.kr/ · https://sukjae.itch.io/neon-glide
 
 ---
 
@@ -43,7 +43,7 @@ Leaderboard writes go through Firebase anonymous auth — no login prompt, but
 each device gets an identity, so scores can only be improved by their owner
 instead of POSTed by anyone with curl (which is how it worked at first).
 
-https://csj3814-create.github.io/neon-glide/
+https://neon.habitschool.kr/
 ```
 
 ---
@@ -70,7 +70,7 @@ and you know you beat them on identical ground. Resets 00:00 UTC.
 No install, no signup, no ads. Works on phones (hold it in portrait, it rotates
 itself). Nine languages. Free.
 
-https://csj3814-create.github.io/neon-glide/
+https://neon.habitschool.kr/
 
 Collect 10 stars and you hit MAX — at x10 multiplier you stop dying instantly
 and start trading stars for survival, which is where the runs get interesting.
@@ -89,7 +89,7 @@ and start trading stars for survival, which is where the runs get interesting.
 
 **본문**
 ```
-Play in browser, nothing to install: https://csj3814-create.github.io/neon-glide/
+Play in browser, nothing to install: https://neon.habitschool.kr/
 
 Everyone gets the same course each day (seeded off the UTC date), so the global
 leaderboard is a fair comparison. It resets at midnight UTC.
@@ -107,7 +107,7 @@ seem to discover last, and it's the one that makes the late gates survivable.
 
 ## 4. X / 트위터
 
-동영상이 전부다. `dist\gameplay-landscape.webm` 첨부.
+동영상이 전부다. `promo\trailer-20s.mp4` 첨부 (X는 WebM을 받지 않으므로 반드시 MP4).
 
 **본문**
 ```
@@ -118,7 +118,7 @@ Tomorrow, a different one.
 NEON GLIDE — one button, daily seeded, global leaderboard that wipes at
 midnight UTC. No install, no signup. It's one 78KB HTML file.
 
-https://csj3814-create.github.io/neon-glide/
+https://neon.habitschool.kr/
 ```
 
 ---
@@ -186,7 +186,7 @@ DCinside·에펨코리아는 링크 홍보에 적대적이니 피한다.
 설치도 가입도 없고 광고도 없습니다. 폰에서도 됩니다(세로로 들면 알아서
 돌아갑니다). 한국어 지원합니다.
 
-https://csj3814-create.github.io/neon-glide/
+https://neon.habitschool.kr/
 
 A는 감속, D는 가속이고 에너지가 제한돼 있습니다. 반사신경보다 언제 속도를
 줄일지가 중요해지는 순간이 옵니다. 별 10개 모아서 MAX 되면 벽에 부딪혀도
@@ -195,13 +195,17 @@ A는 감속, D는 가속이고 에너지가 제한돼 있습니다. 반사신경
 
 ---
 
-## 순서와 주의사항
+## 진행 상황 (2026-07-22 기준)
 
-1. **itch.io 데블로그** — 지금 바로. 기존 팔로워 대상이라 리스크 0.
-2. **X** — 영상과 함께. 리스크 0.
-3. **클리앙 / 루리웹** — 한국 시간 저녁. 초기 리더보드를 채워야 다음 단계가 산다.
-4. **r/WebGames, r/playmygame** — 계정 필요. 아래 경고 참고.
-5. **Show HN** — 리더보드에 사람이 어느 정도 찬 뒤. 빈 순위표를 보여주면 손해다.
+- ✅ **itch.io 데블로그** — 게시 완료
+- ✅ **X** — 게시 완료
+- ✅ **루리웹 게임개발 게시판** — 게시 완료 (클리앙은 계정 이용권한 부족으로 불가)
+- ✅ **r/WebGames** — 게시 완료, automod 통과
+- ⬜ **r/playmygame** — 다음 차례
+- ⬜ **Show HN** — 리더보드에 사람이 어느 정도 찬 뒤. 빈 순위표를 보여주면 손해다.
+
+이미 올린 글들의 링크는 구 주소(`csj3814-create.github.io/neon-glide/`)지만 301 리다이렉트로
+살아 있다. 앞으로 올리는 글에만 짧은 주소를 쓴다.
 
 **계정 나이 문제.** Reddit은 새 계정의 링크 게시물을 자동으로 지운다. 각 서브레딧
 규칙(사이드바)을 먼저 읽고, 며칠 댓글 활동으로 카르마를 쌓은 뒤 올린다.
