@@ -1184,7 +1184,10 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
   function update(dt) {
     elapsed += dt;
-    speed += dt * 5;                                  // 서서히 가속
+    // 상한(≈640)에 다가갈수록 가속이 줄어든다. 예전엔 선형 무한 가속이라
+    // 후반(7천 점 부근)에 속도가 벽처럼 튀었다. 초반 체감은 거의 그대로 유지되고
+    // 늦게 갈수록 평탄해지며, 후반 난이도는 게이트 패턴(무버·레이저·다중통로)이 맡는다.
+    speed += (640 - speed) * dt * 0.015;
     // 브레이크/부스트: 감속 ×0.45, 가속 ×1.65 — 에너지 소모/회복
     const thr = throttleNow();
     if (thr !== 0) energy = Math.max(0, energy - (thr > 0 ? 30 : 22) * dt);
