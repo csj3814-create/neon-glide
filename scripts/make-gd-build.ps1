@@ -61,6 +61,27 @@ $html = $html.Replace($retryLine, $retryNew)
 if ($html -notmatch '__ngAdPause = function' -or $html -notmatch 'startGame\(\); if \(window\.__gdShowAd\)') {
   throw '광고 훅/재시작 주입 검증 실패'
 }
+
+# (c) 이어하기 버튼 → 리워드 광고. 끝까지 본 경우(.then)에만 실제로 이어하고,
+#     스킵/광고없음(.catch)이면 게임오버. SDK가 아예 없으면 무료 이어하기로 폴백.
+$reviveLine = "  document.getElementById('btn-revive').addEventListener('click', e => { e.stopPropagation(); doRevive(); });"
+if (($html -split [regex]::Escape($reviveLine)).Count -ne 2) { throw 'btn-revive 리스너 라인을 찾지 못했습니다' }
+$reviveNew = @"
+  document.getElementById('btn-revive').addEventListener('click', e => { e.stopPropagation();
+    clearInterval(reviveTimer);   // 광고 보는 동안 카운트다운이 게임오버로 넘어가지 않게
+    if (window.gdsdk && window.gdsdk.showAd) {
+      window.gdsdk.showAd('rewarded').then(function () { doRevive(); }).catch(function () { finishOver(); });
+    } else { doRevive(); }
+  });
+"@ -replace "`r`n", "`n"
+$html = $html.Replace($reviveLine, $reviveNew)
+
+# (d) 이어하기 버튼 문구를 광고 기반으로 (주요 2개 언어). 나머지는 영어 폴백.
+$html = $html.Replace("revive: '🚀 CONTINUE (free ×1)'", "revive: '🚀 WATCH AD TO CONTINUE'")
+$html = $html.Replace("revive: '🚀 이어하기 (무료 1회)'", "revive: '🚀 광고 보고 이어하기'")
+if ($html -notmatch "showAd\('rewarded'\)" -or $html -notmatch 'WATCH AD TO CONTINUE') {
+  throw '리워드 광고 이어하기 주입 검증 실패'
+}
 if ($html -notmatch 'html5\.api\.gamedistribution\.com' -or $html -match 'sdk\.crazygames\.com') {
   throw 'SDK 교체 검증 실패 (GD 없음 또는 CrazyGames 잔존)'
 }
