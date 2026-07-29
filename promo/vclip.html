@@ -1,0 +1,151 @@
+<!-- 세로(9:16) 숏폼 클립 추출기 — TikTok / Shorts / Reels 용.
+     가로 게임 녹화를 1080x1920 프레임 중앙에 넣고 위/아래에 훅과 주소를 얹는다.
+     캐주얼 게임 확산의 1순위 포맷. http://localhost:8080/promo/vclip.html 로 연다.
+     ffmpeg 없이 브라우저 캔버스로 합성/재녹화하므로 설치가 필요 없다. -->
+<meta charset="utf-8">
+<title>NEON GLIDE — 세로 클립 추출</title>
+<style>
+  body { margin:0; padding:20px; background:#0a0618; color:#e6ebff;
+         font:14px/1.6 "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size:17px; margin:0 0 4px; }
+  p.hint { color:#97a3c8; margin:0 0 16px; }
+  .wrap { display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; }
+  video { width:520px; max-width:60vw; background:#000; border-radius:8px; }
+  canvas { width:216px; height:384px; background:#000; border-radius:10px; border:1px solid #2a2350; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  button { background:#7a5cff; color:#fff; border:0; border-radius:8px; padding:9px 16px; font-size:14px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.45; cursor:default; }
+  button.alt { background:#223; color:#cfe0ff; }
+  input[type=number]{ width:70px; background:#17122e; color:#fff; border:1px solid #3b3068; border-radius:6px; padding:7px; }
+  input[type=text]{ width:340px; background:#17122e; color:#fff; border:1px solid #3b3068; border-radius:6px; padding:8px; }
+  label{ color:#b9c6ea; }
+  #log{ margin-top:14px; padding:11px 14px; background:#120e28; border-radius:8px; min-height:20px; color:#b9c6ea; white-space:pre-wrap; }
+  b{ color:#6ee7ff; }
+</style>
+
+<h1>NEON GLIDE — 세로(9:16) 숏폼 클립 추출</h1>
+<p class="hint">재생하며 시작 지점을 찾아 멈춘 뒤 내보내기. 결과는 1080×1920 MP4로 다운로드 폴더에 저장됩니다. TikTok·Shorts·Reels에 바로 올리세요.</p>
+
+<div class="row">
+  <label>상단 훅 <input type="text" id="hook" value="Everyone flies the SAME course today"></label>
+</div>
+<div class="row">
+  <label>길이 <input type="number" id="dur" value="12" min="4" max="60"> 초</label>
+  <label>화질 <input type="number" id="mbps" value="8" min="3" max="20"> Mbps</label>
+  <button id="go">이 지점부터 세로 클립 내보내기</button>
+  <button id="b5" class="alt">← 5초</button>
+  <button id="f5" class="alt">5초 →</button>
+</div>
+
+<div class="wrap" style="margin-top:14px">
+  <video id="v" src="/promo/gameplay-raw.webm" controls preload="metadata"></video>
+  <canvas id="pv" width="1080" height="1920"></canvas>
+</div>
+
+<div id="log">준비됨. 오른쪽은 세로 프레임 미리보기입니다.</div>
+
+<script>
+  const v = document.getElementById('v');
+  const pv = document.getElementById('pv');
+  const px = pv.getContext('2d');
+  const log = document.getElementById('log');
+  const say = m => { log.textContent = m; };
+  const W = 1080, H = 1920;
+
+  document.getElementById('b5').onclick = () => { v.currentTime = Math.max(0, v.currentTime - 5); };
+  document.getElementById('f5').onclick = () => { v.currentTime = v.currentTime + 5; };
+
+  // 별 배경(고정 시드 대신 미리 계산)
+  const stars = [];
+  for (let i = 0; i < 90; i++) stars.push({ x: Math.random()*W, y: Math.random()*H, r: Math.random()*2+0.5, a: Math.random()*0.5+0.2 });
+
+  function wordmark(cx, y, size) {
+    const path = 'NEON GLIDE';
+    cx.font = '900 ' + size + 'px "Segoe UI", sans-serif';
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    const grad = cx.createLinearGradient(W*0.2, 0, W*0.8, 0);
+    grad.addColorStop(0, '#00eaff'); grad.addColorStop(0.55, '#ff3cc8'); grad.addColorStop(1, '#ffc850');
+    cx.save();
+    cx.shadowColor = 'rgba(150,90,255,0.0)';   // shadowBlur는 느려서 미사용
+    cx.fillStyle = grad;
+    cx.fillText(path, cx === px ? W/2 : W/2, y);
+    cx.restore();
+  }
+
+  function drawFrame(cx) {
+    // 배경 그라디언트
+    const bg = cx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#0a0524'); bg.addColorStop(0.5, '#140a36'); bg.addColorStop(1, '#05010f');
+    cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
+    for (const s of stars) { cx.globalAlpha = s.a; cx.fillStyle = '#cfe0ff'; cx.beginPath(); cx.arc(s.x, s.y, s.r, 0, 7); cx.fill(); }
+    cx.globalAlpha = 1;
+
+    // 게임 화면: 전체 폭, 세로 중앙 밴드
+    const gw = W, gh = Math.round(W * (v.videoHeight / v.videoWidth) || W * 9/16);
+    const gy = Math.round((H - gh) / 2);
+    // 밴드 위아래 네온 라인
+    cx.drawImage(v, 0, gy, gw, gh);
+    cx.strokeStyle = 'rgba(0,234,255,0.55)'; cx.lineWidth = 3;
+    cx.strokeRect(0, gy, gw, gh);
+
+    // 상단 훅
+    const hook = (document.getElementById('hook').value || '').toUpperCase();
+    cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.fillStyle = '#ffffff'; cx.font = '800 62px "Segoe UI", sans-serif';
+    wrapText(cx, hook, W/2, gy * 0.42, W - 120, 74);
+    // 상단 워드마크
+    wordmark(cx, gy * 0.80, 46);
+
+    // 하단: 주소 + 무료 안내
+    cx.fillStyle = '#ffffff'; cx.font = '800 58px "Segoe UI", sans-serif';
+    cx.fillText('neon.habitschool.kr', W/2, gy + gh + (H - gy - gh) * 0.42);
+    cx.fillStyle = '#97a3c8'; cx.font = '600 40px "Segoe UI", sans-serif';
+    cx.fillText('one button · free · no signup', W/2, gy + gh + (H - gy - gh) * 0.60);
+  }
+
+  function wrapText(cx, text, x, y, maxW, lh) {
+    const words = text.split(' '); let line = ''; const lines = [];
+    for (const w of words) { const t = line ? line + ' ' + w : w; if (cx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
+    if (line) lines.push(line);
+    const start = y - (lines.length - 1) * lh / 2;
+    lines.forEach((l, i) => cx.fillText(l, x, start + i * lh));
+  }
+
+  // 미리보기 루프
+  let raf;
+  function preview() { if (v.readyState >= 2) drawFrame(px); raf = requestAnimationFrame(preview); }
+  v.addEventListener('loadedmetadata', () => { say('원본 ' + v.videoWidth + 'x' + v.videoHeight + ' · ' + v.duration.toFixed(1) + '초. 시작 지점을 찾아 멈추세요.'); preview(); });
+
+  document.getElementById('go').onclick = async () => {
+    const start = v.currentTime;
+    const dur = Math.min(+document.getElementById('dur').value, (v.duration - start) || 60);
+    if (!(dur > 0)) { say('남은 길이가 부족합니다. 더 앞 지점을 고르세요.'); return; }
+    document.getElementById('go').disabled = true;
+
+    const out = document.createElement('canvas'); out.width = W; out.height = H;
+    const ocx = out.getContext('2d');
+    const mime = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ? 'video/mp4;codecs=avc1' : 'video/webm;codecs=vp9';
+    const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+    const rec = new MediaRecorder(out.captureStream(60), { mimeType: mime, videoBitsPerSecond: (+document.getElementById('mbps').value) * 1000000 });
+    const chunks = []; rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      const blob = new Blob(chunks, { type: mime.split(';')[0] });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'neon-glide-vertical-' + Math.round(start) + 's.' + ext;
+      document.body.appendChild(a); a.click();
+      say('완료 — ' + dur.toFixed(1) + '초, ' + (blob.size/1048576).toFixed(1) + ' MB, ' + ext.toUpperCase() + ' 세로. 다운로드 폴더 확인.');
+      document.getElementById('go').disabled = false;
+    };
+
+    v.pause(); v.currentTime = start;
+    await new Promise(r => v.addEventListener('seeked', r, { once: true }));
+    let raf2; const draw = () => { drawFrame(ocx); raf2 = requestAnimationFrame(draw); };
+    draw(); rec.start(500); v.play();
+    const t0 = performance.now();
+    const watch = setInterval(() => {
+      const done = (performance.now() - t0) / 1000;
+      say('내보내는 중… ' + done.toFixed(1) + ' / ' + dur.toFixed(1) + '초');
+      if (done >= dur || v.ended) { clearInterval(watch); cancelAnimationFrame(raf2); v.pause(); rec.stop(); }
+    }, 200);
+  };
+</script>
