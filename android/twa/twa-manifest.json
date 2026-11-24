@@ -1,0 +1,49 @@
+{
+  "packageId": "io.github.csj3814_create.neonglide",
+  "host": "neon.habitschool.kr",
+  "name": "NEON GLIDE — Daily Challenge",
+  "launcherName": "NEON GLIDE",
+  "display": "fullscreen",
+  "themeColor": "#05010f",
+  "themeColorDark": "#05010f",
+  "navigationColor": "#05010f",
+  "navigationColorDark": "#05010f",
+  "navigationDividerColor": "#05010f",
+  "navigationDividerColorDark": "#05010f",
+  "backgroundColor": "#05010f",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://raw.githubusercontent.com/csj3814-create/neon-glide/main/icon-512.png",
+  "maskableIconUrl": "https://raw.githubusercontent.com/csj3814-create/neon-glide/main/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "C:/Users/user/NeonGlide-PlayStore-KEYS/package/signing.keystore",
+    "alias": "my-key-alias"
+  },
+  "appVersionName": "1.0.1",
+  "appVersionCode": 2,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": false,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://neon.habitschool.kr/",
+  "minSdkVersion": 24,
+  "orientation": "landscape",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [
+    "fullscreen",
+    "standalone"
+  ],
+  "appVersion": "1.0.1"
+}
