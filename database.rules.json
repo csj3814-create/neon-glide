@@ -17,6 +17,7 @@
             "s": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 200000" },
             "d": { ".validate": "newData.isString() && newData.val().length == 10" },
             "t": { ".validate": "newData.isNumber()" },
+            "g": { ".validate": "newData.isString() && newData.val().length <= 1200" },
             "$other": { ".validate": false }
           }
         }

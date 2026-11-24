@@ -214,6 +214,21 @@
   }
   #lb-nav button:disabled { opacity: 0.25; cursor: default; }
   #next-course { font-size: 13px; color: #9f97ff; }
+  #cal-wrap { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  #cal-label { font-size: 11px; letter-spacing: .08em; color: rgba(160,175,215,.8); }
+  #cal { display: flex; gap: 4px; }
+  #cal .d {
+    width: 15px; height: 15px; border-radius: 4px; font-size: 9px; line-height: 15px;
+    text-align: center; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.08);
+  }
+  #cal .d.m1 { background: #7a4a22; border-color: #c07b38; }
+  #cal .d.m2 { background: #6b7076; border-color: #cfd6de; }
+  #cal .d.m3 { background: #8a6a12; border-color: #ffd700; }
+  #cal .d.m4 { background: #1d6f75; border-color: #7ff5ff; }
+  #cal .d.today { outline: 1.5px solid #ff2df7; outline-offset: 1px; }
+  #medal-line { font-size: 19px; font-weight: 800; color: #ffe14d; }
+  #medal-line.hidden, #overdrive-line.hidden { display: none; }
+  #overdrive-line { color: #ff8df9; }
   #ybadge { font-size: 14px; color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
   /* 회전 컨테이너: 세로로 들면 게임 전체를 가로로 회전시켜 화면을 꽉 채움 */
   #rotator { position: fixed; inset: 0; overflow: hidden; }
@@ -304,6 +319,7 @@
   <p class="sub" id="howto"></p>
   <div class="best" id="best-start"></div>
   <div class="best" id="streak"></div>
+  <div id="cal-wrap"><div id="cal-label"></div><div id="cal"></div></div>
   <div id="ybadge"></div>
   <button id="btn-start"></button>
   <button class="ghost hidden" id="btn-install"></button>
@@ -324,6 +340,8 @@
     <div class="big-score" id="final-score">0</div>
     <div class="best" id="best-over"></div>
     <div class="sub" id="reached-line"></div>
+    <div id="medal-line"></div>
+    <div class="sub" id="overdrive-line"></div>
     <div class="sub" id="rank-hint"></div>
     <div class="seed-tag" id="seed-tag-over"></div>
     <button id="btn-share"></button>
@@ -405,7 +423,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // ---------- 다국어 ----------
   const I18N = {
     en: { name: 'English',
-      howto: 'Hold to rise, release to dive.<br>A = brake · D = boost · P = pause (mobile: 2nd finger left = brake, right = boost).<br>⭐ Stars boost your combo · walls can have 2–3 openings · 🔴 wait lasers out with the brake!<br><b>Everyone in the world plays the same course today.</b>',
+      howto: 'Hold to rise, release to dive.<br>A = brake · D = boost · P = pause (mobile: 2nd finger left = brake, right = boost).<br>🏁 <b>60 gates to the finish line.</b> Shave edges, thread lasers and pass on boost to build your ★ chain — a lazy pass costs you 3 levels.<br><b>The exact same 60 gates for everyone in the world today.</b>',
       todayCourse: "Today's course", dailyCourse: 'daily course', best: "Today's best",
       start: "START TODAY'S RUN", over: 'GAME OVER', share: '📤 Share score', retry: 'Retry',
       copied: 'Score copied — challenge a friend! 📋',
@@ -415,10 +433,16 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       revive: '🚀 CONTINUE (free ×1)', skipRevive: 'No thanks', reached: 'Reached gate {n}',
       rotate: '📱 Rotate your phone sideways!', nextCourse: '🌍 New course in {t}', yRank: '🏅 Yesterday: world #{n}!',
       install: '📲 Install as app',
+      cleared: "🏁 TODAY'S COURSE CLEARED!", clearTime: '⏱ Clear time {t}s',
+      reachedOf: 'Gate {n} / {m}', rankedScore: 'Ranked score {s}',
+      overdriveLine: '⚡ Overdrive +{n} (not ranked)',
+      medalLine: '{icon} {name}', nextMedal: '{n} pts to {name}',
+      m1: 'Bronze', m2: 'Silver', m3: 'Gold', m4: 'Platinum',
+      clearStreak: '🏁 {n}-day clear streak!', calLabel: 'LAST 14 DAYS',
       privacy: 'Privacy', privacyClose: 'Close',
       privacyText: 'No account, no tracking, no ads. The only thing that reaches our server is the name you type when you submit a score, along with that score and the date — it is public on the leaderboard. Your device holds an anonymous ID so that only you can improve your own entry, plus your settings and best scores, all in local storage. Clear your browser data and all of it is gone.' },
     ko: { name: '한국어',
-      howto: '누르고 있으면 상승, 떼면 하강.<br>A=감속 · D=가속 · P=일시정지 (모바일: 두 번째 손가락 왼쪽=감속·오른쪽=가속).<br>⭐ 별은 배율 부스터 · 벽엔 통로가 2~3개일 수도 · 🔴 레이저는 브레이크로 타이밍을 재세요!<br><b>오늘의 코스는 전 세계 모두 동일합니다.</b>',
+      howto: '누르고 있으면 상승, 떼면 하강.<br>A=감속 · D=가속 · P=일시정지 (모바일: 두 번째 손가락 왼쪽=감속·오른쪽=가속).<br>🏁 <b>게이트 60개를 통과하면 완주.</b> 가장자리를 스치듯 지나고, 레이저를 뚫고, 부스트로 통과하면 ★ 체인이 쌓입니다 — 밋밋하게 지나가면 3단계 하락.<br><b>오늘은 전 세계가 똑같은 60개 게이트를 달립니다.</b>',
       todayCourse: '오늘의 코스', dailyCourse: '데일리 코스', best: '오늘의 최고 기록',
       start: '오늘의 코스 시작', over: 'GAME OVER', share: '📤 점수 공유하기', retry: '다시 도전',
       copied: '점수가 복사됐어요 — 친구에게 도전장을! 📋',
@@ -428,6 +452,12 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       revive: '🚀 이어하기 (무료 1회)', skipRevive: '괜찮아요', reached: '게이트 {n}번까지 도달',
       rotate: '📱 휴대폰을 가로로 돌려주세요!', nextCourse: '🌍 다음 코스까지 {t}', yRank: '🏅 어제 세계 {n}위!',
       install: '📲 앱으로 설치하기',
+      cleared: '🏁 오늘의 코스 완주!', clearTime: '⏱ 완주 기록 {t}초',
+      reachedOf: '게이트 {n} / {m}', rankedScore: '순위 점수 {s}',
+      overdriveLine: '⚡ 오버드라이브 +{n} (순위 미반영)',
+      medalLine: '{icon} {name}', nextMedal: '{name}까지 {n}점',
+      m1: '브론즈', m2: '실버', m3: '골드', m4: '플래티넘',
+      clearStreak: '🏁 {n}일 연속 완주!', calLabel: '최근 14일',
       privacy: '개인정보', privacyClose: '닫기',
       privacyText: '계정도, 추적도, 광고도 없습니다. 서버로 전송되는 것은 점수를 등록할 때 직접 입력한 이름과 그 점수·날짜뿐이며, 리더보드에 공개됩니다. 기기에는 본인만 자기 기록을 갱신할 수 있도록 익명 식별자가 저장되고, 설정과 최고 기록도 로컬에 남습니다. 브라우저 데이터를 지우면 전부 사라집니다.' },
     ja: { name: '日本語',
@@ -544,13 +574,13 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     document.getElementById('btn-privacy').textContent = pbox.classList.contains('hidden') ? T('privacy') : T('privacyClose');
     const savedBest = localStorage.getItem(BEST_KEY);
     document.getElementById('best-start').textContent = savedBest ? `${T('best')}: ${savedBest}` : '';
-    document.getElementById('streak').textContent = streakN > 1 ? T('streak').replace('{n}', streakN) : '';
+    const cs = clearStreak();
+    document.getElementById('streak').textContent =
+      cs > 0 ? T('clearStreak').replace('{n}', cs) : (streakN > 1 ? T('streak').replace('{n}', streakN) : '');
+    document.getElementById('cal-label').textContent = T('calLabel');
+    renderCalendar();
     // 게임오버 화면의 동적 텍스트도 현재 언어로 다시 적용
-    if (lastRun) {
-      document.getElementById('best-over').textContent = `${T('best')}: ${lastRun.best}`;
-      document.getElementById('reached-line').textContent = T('reached').replace('{n}', lastRun.gatesPassed);
-      document.getElementById('new-best').textContent = T('newBest');
-    }
+    if (lastRun) renderOverTexts();
     if (yRankIdx >= 0) document.getElementById('ybadge').textContent = T('yRank').replace('{n}', yRankIdx + 1);
     // 리더보드가 떠 있으면 제목·날짜·힌트도 갱신
     if (LB_URL && !document.getElementById('over-screen').classList.contains('hidden')) refreshLb();
@@ -606,11 +636,21 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   const NEONS = ['#00f0ff', '#ff2df7', '#ffe14d', '#39ff88', '#6a5bff'];
   const BEST_KEY = 'neonglide-best-' + dateStr;
   let state = 'idle';            // idle | play | over
-  let rng, gates = [], particles = [], coins = [], popups = [];
+  let gates = [], particles = [], coins = [], popups = [];
   let stars = seededStars(mulberry32(hashStr('STARS:' + dateStr)));
   let player, speed, score, dist, holding, elapsed;
   let gatesPassed = 0, mult = 1;
   let shakeT = 0;
+  // ---------- 점수 배분 ----------
+  // 예전에는 점수의 63%가 '게이트를 그냥 지나가기'였다. 오래 버티는 사람이 이기는 구조라
+  // 가장 안전하고 지루한 플레이가 최적해였다. 이제 기본 통과는 거의 점수를 주지 않고
+  // 아슬아슬한 라인·레이저 관통·부스트 통과 같은 실력 플레이가 점수를 만든다.
+  const SC_GATE = 6, SC_STAR = 20, SC_CLOSE = 14, SC_THREAD = 30, SC_BOOST = 10;
+  const CHAIN_PER_LEVEL = 3, CHAIN_PENALTY = 3;    // 밋밋하게 지나가면 ★ 한 단계 하락
+  function multOf(c) { return 1 + Math.min(9, (c / CHAIN_PER_LEVEL) | 0); }
+  let chain = 0;                           // 연속 실력 플레이 카운터 (= 배율의 원천)
+  let finished = false, clearTime = 0, officialScore = 0;   // 피니시 라인 통과 기록
+  let cleanGates = 0;                      // 노미스로 지나온 게이트 수 (연출용)
   let speedF = 1;                          // 브레이크/부스트 속도 배율
   let keyThrottle = 0, mouseBrake = false, touchBrake = false, touchBoost = false;
   let energy = 100;                        // 가감속 에너지 (부스트/브레이크 소모, 순항 시 회복)
@@ -618,7 +658,8 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // MAX 모드(×10) 방패: 벽 −10★, 레이저 −5★ 하며 살아남기. 방패 발동 성공 시 true
   function maxShield(cost) {
     if (mult < 10) return false;
-    mult = Math.max(1, mult - cost);
+    chain = Math.max(0, chain - cost * CHAIN_PER_LEVEL);
+    mult = multOf(chain);
     updateHud();
     popup(player.x + 22, player.y - 42, '🛡 −' + cost + '★', '#ffe14d');
     burst(player.x, player.y, '#ffe14d', 18);
@@ -626,10 +667,10 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     shakeT = 0.22;
     return true;
   }
-  let anchorY = 0;                         // 도달 가능성 보정용 이전 게이트 기준점
-  let gateSeq = 0;                         // 게이트 일련번호
+  let gateSeq = 0;                         // 코스에서 다음에 투입할 게이트 번호
   let reviveUsed = false, reviveTimer = null;
   let lastRun = null, yRankIdx = -1;       // 언어 재적용용 마지막 게임오버 데이터
+  let submitScore = 0;                     // 리더보드에 올라가는 공식 점수 (피니시 라인 기준)
   const BESTG_KEY = 'neonglide-bestg-' + dateStr;
   let bestG = +(localStorage.getItem(BESTG_KEY) || 0);   // 오늘 최고 도달 게이트
   function throttleNow() {
@@ -642,7 +683,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     const badge = document.getElementById('mult-badge');
     badge.textContent = mult > 1 ? '×' + mult : '';
     badge.classList.toggle('fever', mult >= 5);
-    document.getElementById('gate-badge').textContent = gatesPassed > 0 ? '#' + gatesPassed : '';
+    document.getElementById('gate-badge').textContent =
+      gatesPassed >= COURSE_LEN ? '🏁 OVERDRIVE ' + (gatesPassed - COURSE_LEN)
+      : (gatesPassed > 0 ? gatesPassed + ' / ' + COURSE_LEN : '');
   }
   function popup(x, y, txt, color) {
     popups.push({ x, y, txt, color, life: 0.9 });
@@ -661,119 +704,248 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     return arr;
   }
 
+  // ---------- 오늘의 코스 ----------
+  // 예전에는 플레이 도중에 게이트를 하나씩 만들면서 그 순간의 speed·gatesPassed를 읽었다.
+  // 그래서 브레이크를 많이 쓰면 분기가 달라져 rng() 호출 횟수가 바뀌고 시드 스트림이
+  // 어긋났다 — 같은 날짜인데도 주행 방식에 따라 65개 게이트 중 58개가 달랐다.
+  // 이제 런이 시작되기 전에 코스 전체를 한 번에 만든다. 누가 어떻게 달리든 완전히 동일하다.
+  const COURSE_LEN = 60;
+  const SPEED_START = 215, SPEED_FINISH = 560;
+
+  // 기본 스크롤 속도도 '경과 시간'이 아니라 '지나온 게이트 수'로 정한다.
+  // 시간 기준이면 천천히 달린 사람의 코스가 더 빨라져 도달 가능성 계산이 어긋난다.
+  function speedAt(i) {
+    const p = Math.max(0, Math.min(1, i / COURSE_LEN));
+    return SPEED_START + (SPEED_FINISH - SPEED_START) * Math.pow(p, 0.85);
+  }
+  // 오버드라이브(완주 후 보너스 구간)는 순위에 들어가지 않으므로 계속 더 빨라진다.
+  function speedOver(i) { return SPEED_FINISH + Math.min(170, (i - COURSE_LEN) * 2.4); }
+  function curSpeedTarget() {
+    return gatesPassed >= COURSE_LEN ? speedOver(gatesPassed) : speedAt(gatesPassed);
+  }
+
+  // 난이도 아크: 워밍업 → 메커닉 도입 → 복합 → 클라이맥스
+  function arcHalf(p) { return 168 - 88 * Math.pow(p, 1.3); }
+  function arcCadence(p) { return 1.50 - 0.58 * p; }     // 게이트 사이 목표 간격(초)
+
+  let course = null;          // 오늘의 코스 전체 (게이트 스펙 배열)
+  let courseMax = 0;          // 이론상 만점 — 메달 기준선의 분모
+  let coursePar = 0;          // 순항으로 완주했을 때의 예상 시간(초)
+  let overRng = null;         // 오버드라이브 전용 난수 (순위와 무관)
+
+  // 게이트 스펙 하나. i만으로 난이도가 정해지므로 주행 방식과 무관하게 동일하다.
+  function makeGateSpec(r, i, anchor) {
+    const p = Math.min(1, (i - 1) / (COURSE_LEN - 1));
+    const k = Math.min(1, Math.max(0, i - COURSE_LEN) / 60);   // 오버드라이브 가중
+    const margin = 70;
+    const spd = i <= COURSE_LEN ? speedAt(i) : speedOver(i);
+    const cad = arcCadence(p) - 0.10 * k;
+    const dx = spd * cad;
+    // 통로 개수 — 9번 게이트부터 2개, 30번부터 3개가 나오기 시작
+    let nGaps = 1;
+    if (i >= 9) {
+      const rr = r();
+      const p3 = i >= 30 ? 0.05 + 0.15 * p + 0.08 * k : 0;
+      const p2 = 0.22 + 0.30 * p;
+      nGaps = rr < p3 ? 3 : (rr < p3 + p2 ? 2 : 1);
+    }
+    const baseHalf = Math.max(52, arcHalf(p) - 13 * k) * (nGaps > 1 ? 0.84 : 1);
+    // 도달 가능성: 직전 기준점에서 물리적으로 닿는 통로를 하나는 보장
+    const reach = Math.max(150, cad * 370 * 0.72);
+    const usable = H - margin * 2;
+    const centers = [];
+    for (let j = 0; j < nGaps; j++) {
+      const band = usable / nGaps;
+      centers.push(margin + band * j + band * (0.3 + r() * 0.4));
+    }
+    let bi = 0;
+    for (let j = 1; j < nGaps; j++) if (Math.abs(centers[j] - anchor) < Math.abs(centers[bi] - anchor)) bi = j;
+    centers[bi] = Math.max(margin + baseHalf, Math.min(H - margin - baseHalf,
+      Math.max(anchor - reach, Math.min(anchor + reach, centers[bi]))));
+    const gaps = centers.map(cy => ({ cy, half: baseHalf * (0.88 + r() * 0.24), laser: null, segTop: r() < 0.5 }));
+    const spec = {
+      idx: i, dx, gaps,
+      color: NEONS[(r() * NEONS.length) | 0],
+      amp: 0, phase: r() * Math.PI * 2,
+      pulseAmp: 0, pulse: r() * Math.PI * 2,
+      coins: []
+    };
+    if (i >= 12 && r() < 0.12 + 0.38 * p + 0.1 * k) spec.amp = 32 + 78 * p + 20 * k;
+    if (i >= 20 && r() < 0.10 + 0.30 * p + 0.1 * k) spec.pulseAmp = 0.09 + 0.13 * p;
+    // 레이저: 다중 통로면 한 통로를 통째로, 단일 통로면 틈의 55%만 (브레이크로 타이밍 조절)
+    const rl = r();
+    if (nGaps >= 2 && i >= 24 && rl < 0.18 + 0.34 * p + 0.1 * k) {
+      gaps[(r() * nGaps) | 0].laser = { full: true, pulse: r() * 1.6 };
+    } else if (nGaps === 1 && i >= 22 && rl < 0.16 + 0.30 * p + 0.1 * k) {
+      gaps[0].laser = { full: false, pulse: r() * 1.6 };
+    }
+    // 이 게이트 바로 앞 구간의 별 (게이트 x 기준 음수 오프셋)
+    const rc = r();
+    if (rc < 0.16) {
+      // 스타 러시: 곡선을 그리는 별 5개
+      const y0 = 110 + r() * (H - 220), amp = 40 + r() * 70, dir = r() < 0.5 ? 1 : -1;
+      for (let j = 0; j < 5; j++) {
+        spec.coins.push({
+          ox: -dx * 0.78 + j * 46,
+          y: Math.max(60, Math.min(H - 60, y0 + Math.sin(j * 0.8) * amp * dir)),
+          spin: r() * 7
+        });
+      }
+    } else if (rc < 0.62) {
+      spec.coins.push({ ox: -dx * (0.35 + r() * 0.3), y: 80 + r() * (H - 160), spin: r() * 7 });
+    }
+    return { spec, anchor: gaps[bi].cy };
+  }
+
+  function buildCourse() {
+    const r = mulberry32(hashStr('NEONGLIDE-DAILY-v2:' + dateStr));
+    const list = [];
+    let anchor = H / 2;
+    for (let i = 1; i <= COURSE_LEN; i++) {
+      const made = makeGateSpec(r, i, anchor);
+      anchor = made.anchor;
+      list.push(made.spec);
+    }
+    return list;
+  }
+
+  // 순항(부스트·브레이크 없이)으로 완주했을 때의 예상 시간 — 타임 보너스의 기준선
+  function parTime(list) {
+    let t = (W + 220 - W * 0.28) / SPEED_START;
+    for (let i = 1; i < list.length; i++) t += list[i].dx / speedAt(i + 1);
+    return t;
+  }
+
+  // 이론상 만점: 모든 게이트에서 CLOSE+BOOST, 레이저는 전부 관통, 별은 전부 획득,
+  // 체인이 한 번도 끊기지 않았을 때. 메달 기준선은 이 값의 비율로 정해진다.
+  function estimateMax(list) {
+    let c = 0, total = 0;
+    for (const spec of list) {
+      for (let j = 0; j < spec.coins.length; j++) { total += SC_STAR * multOf(c); c++; }
+      let per = SC_GATE + SC_CLOSE + SC_BOOST;
+      if (spec.gaps.some(g => g.laser)) per += SC_THREAD;
+      total += per * multOf(c); c++;
+    }
+    return total + 1000;          // 완주 보너스 (타임 보너스는 제외 — 사람마다 다름)
+  }
+
+  let overAnchor = 0;
+  function nextSpec(i) {
+    if (i <= COURSE_LEN) return course[i - 1];
+    const made = makeGateSpec(overRng, i, overAnchor);
+    overAnchor = made.anchor;
+    return made.spec;
+  }
+
+  function spawnGate(spec, x) {
+    return {
+      x, idx: spec.idx,
+      gaps: spec.gaps.map(g => ({
+        cy: g.cy, half: g.half, segTop: g.segTop,
+        laser: g.laser ? { full: g.laser.full, pulse: g.laser.pulse } : null
+      })),
+      color: spec.color, passed: false,
+      pulse: spec.pulse, amp: spec.amp, phase: spec.phase, pulseAmp: spec.pulseAmp,
+      finish: spec.idx === COURSE_LEN
+    };
+  }
+
+  // 코스의 다음 게이트를 대기열에 올린다 (별도 함께 배치)
+  function pushNextGate() {
+    const spec = nextSpec(++gateSeq);
+    const x = gates.length ? gates[gates.length - 1].x + spec.dx : W + 220;
+    gates.push(spawnGate(spec, x));
+    for (const c of spec.coins) coins.push({ x: x + c.ox, y: c.y, taken: false, spin: c.spin });
+  }
+
+  // ---------- 고스트 (코스가 고정이므로 거리 기준으로 정확히 재생된다) ----------
+  const GHOST_STEP = 90;                   // 필드 좌표 90px마다 한 번 y를 기록
+  let ghostRec = [], ghostMine = null, ghostWorld = null, ghostWorldName = '';
+  function ghostSample() {
+    const k = (dist / GHOST_STEP) | 0;
+    if (k < ghostRec.length || k > 4000) return;
+    const v = Math.max(0, Math.min(255, Math.round(player.y / H * 255)));
+    while (ghostRec.length <= k) ghostRec.push(v);
+  }
+  function ghostEncode(arr) {
+    let bin = '';
+    for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+    try { return btoa(bin); } catch (_) { return ''; }
+  }
+  function ghostDecode(str) {
+    try {
+      const bin = atob(str), a = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+      return a;
+    } catch (_) { return null; }
+  }
+  function ghostY(g, d) {
+    if (!g || g.length < 2) return null;
+    const f = d / GHOST_STEP, i = f | 0;
+    if (i >= g.length - 1) return null;
+    const t = f - i;
+    return (g[i] * (1 - t) + g[i + 1] * t) / 255 * H;
+  }
+
+  // ---------- 하루치 기록 (메달 달력·완주 스트릭) ----------
+  const DAY_KEY = 'ng-days';
+  const MEDAL_CUT = [0.30, 0.45, 0.62, 0.80];      // courseMax 대비 동·은·금·플래티넘
+  const MEDAL_ICON = ['', '🥉', '🥈', '🥇', '💎'];
+  function loadDays() { try { return JSON.parse(localStorage.getItem(DAY_KEY) || '{}'); } catch (_) { return {}; } }
+  function saveDay(rec) {
+    const d = loadDays(), prev = d[dateStr];
+    if (prev && prev.s >= rec.s) return;
+    d[dateStr] = rec;
+    const keys = Object.keys(d).sort();
+    while (keys.length > 60) delete d[keys.shift()];
+    try { localStorage.setItem(DAY_KEY, JSON.stringify(d)); } catch (_) {}
+  }
+  function medalOf(sc, didFinish) {
+    if (!didFinish || !courseMax) return 0;
+    let m = 0;
+    for (let i = 0; i < MEDAL_CUT.length; i++) if (sc >= courseMax * MEDAL_CUT[i]) m = i + 1;
+    return m;
+  }
+  // 완주 스트릭: 오늘(또는 어제)부터 거슬러 올라가며 메달을 딴 날이 며칠 이어졌나
+  function clearStreak() {
+    const d = loadDays();
+    let day = new Date(dateStr + 'T00:00:00Z'), n = 0;
+    if (!(d[dateStr] && d[dateStr].m > 0)) day.setUTCDate(day.getUTCDate() - 1);
+    for (;;) {
+      const key = day.toISOString().slice(0, 10);
+      if (d[key] && d[key].m > 0) { n++; day.setUTCDate(day.getUTCDate() - 1); } else break;
+    }
+    return n;
+  }
+
   function reset() {
-    rng = mulberry32(hashStr('NEONGLIDE:' + dateStr));
+    course = buildCourse();
+    coursePar = parTime(course);
+    courseMax = estimateMax(course);
+    overRng = mulberry32(hashStr('NEONGLIDE-OVER:' + dateStr));
+    overAnchor = H / 2;
     stars = seededStars(mulberry32(hashStr('STARS:' + dateStr)));
     gates = [];
     particles = [];
     coins = [];
     popups = [];
     player = { x: 0, y: H / 2, vy: 0, trail: [] };
-    speed = 200;                 // px/s
+    speed = SPEED_START;
     speedF = 1; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
     ptrZone.clear();
     energy = 100;
     invulnT = 0;
-    anchorY = H / 2;
-    gatesPassed = +(new URLSearchParams(location.search).get('debug')) || 0;
-    gateSeq = gatesPassed;
+    gatesPassed = 0;
+    gateSeq = 0;
     reviveUsed = false;
-    score = gatesPassed * 10;
-    mult = 1 + Math.min(9, (gatesPassed / 5) | 0);
+    finished = false; clearTime = 0; officialScore = 0;
+    chain = 0; cleanGates = 0;
+    score = 0;
+    mult = 1;
     dist = 0; elapsed = 0;
     holding = false;
-    let gx = W + 200, prevGap = 420;
-    for (let i = 0; i < 6; i++) {
-      gates.push(makeGate(gx, prevGap));
-      const gap = gapBetween();
-      maybeCoin(gx, gx + gap);
-      gx += gap;
-      prevGap = gap;
-    }
-  }
-
-  function gapBetween() { return 340 + rng() * 220; }
-
-  // 게이트 = 1~3개의 열린 통로(gaps)를 가진 기둥 벽
-  function makeGate(x, gapDist) {
-    const margin = 70;
-    const gp = gatesPassed;
-    // 통로 개수: 진행할수록 다중 통로 확률 상승
-    let nGaps = 1;
-    if (gp >= 3) {
-      const r = rng();
-      nGaps = r < 0.55 ? 1 : (r < 0.88 ? 2 : 3);
-    }
-    const baseHalf = Math.max(160, 340 - gp * 6) / 2 * (nGaps > 1 ? 0.82 : 1);
-    // 도달 가능성: 이전 기준점에서 물리적으로 갈 수 있는 범위 안에 통로 하나는 보장
-    const reach = Math.max(150, (gapDist / Math.max(120, speed)) * 370 * 0.7);
-    // 통로 배치: 화면을 밴드로 나눠 겹침 없이 배치
-    const usable = H - margin * 2;
-    const centers = [];
-    for (let i = 0; i < nGaps; i++) {
-      const band = usable / nGaps;
-      centers.push(margin + band * i + band * (0.3 + rng() * 0.4));
-    }
-    // 가장 가까운 통로를 도달 가능 범위로 보정
-    let bi = 0;
-    for (let i = 1; i < nGaps; i++) if (Math.abs(centers[i] - anchorY) < Math.abs(centers[bi] - anchorY)) bi = i;
-    centers[bi] = Math.max(margin + baseHalf, Math.min(H - margin - baseHalf,
-      Math.max(anchorY - reach, Math.min(anchorY + reach, centers[bi]))));
-    const gaps = centers.map(cy => ({
-      cy,
-      half: baseHalf * (0.85 + rng() * 0.3),
-      laser: null,
-      segTop: rng() < 0.5
-    }));
-    const g = {
-      x, gaps,
-      idx: ++gateSeq,
-      color: NEONS[(rng() * NEONS.length) | 0],
-      passed: false,
-      pulse: rng() * Math.PI * 2,
-      amp: 0, phase: rng() * Math.PI * 2,
-      pulseAmp: 0
-    };
-    // 무버: 게이트 전체가 상하로 출렁임
-    if (gp >= 4 && rng() < 0.33) g.amp = 40 + Math.min(80, gp * 3);
-    // 펄스: 통로 폭이 숨쉬듯 변함
-    if (gp >= 6 && rng() < 0.3) g.pulseAmp = 0.10 + rng() * 0.10;
-    // 레이저: 다중 통로면 한 통로를 통째로 (다른 통로는 항상 열림),
-    //          단일 통로면 틈의 55%만 (부분 차단) — 브레이크로 타이밍 조절 가능
-    if (nGaps >= 2 && gp >= 6 && rng() < 0.45) {
-      gaps[(rng() * nGaps) | 0].laser = { full: true, pulse: rng() * Math.PI * 2 };
-    } else if (nGaps === 1 && gp >= 8 && rng() < 0.3) {
-      gaps[0].laser = { full: false, pulse: rng() * Math.PI * 2 };
-    }
-    // 다음 게이트 기준점 = 보정한 도달 가능 통로
-    anchorY = gaps[bi].cy;
-    return g;
-  }
-
-  function maybeCoin(fromX, toX) {
-    const r = rng();
-    if (r < 0.14) {
-      // 스타 러시: 곡선을 그리는 별 5개 (젯팩 조이라이드 코인 패턴)
-      const y0 = 110 + rng() * (H - 220);
-      const amp = 40 + rng() * 70;
-      const x0 = fromX + (toX - fromX) * 0.2;
-      const dir = rng() < 0.5 ? 1 : -1;
-      for (let i = 0; i < 5; i++) {
-        coins.push({
-          x: x0 + i * 44,
-          y: Math.max(60, Math.min(H - 60, y0 + Math.sin(i * 0.8) * amp * dir)),
-          taken: false,
-          spin: rng() * 7
-        });
-      }
-    } else if (r < 0.58) {
-      coins.push({
-        x: fromX + (toX - fromX) * (0.35 + rng() * 0.3),
-        y: 80 + rng() * (H - 160),
-        taken: false,
-        spin: rng() * 7
-      });
-    }
+    ghostRec = [];
+    for (let i = 0; i < 6; i++) pushNextGate();
   }
 
   // 무버 게이트의 현재 상하 오프셋 (모든 통로가 함께 이동, 화면 밖 이탈 방지)
@@ -1032,9 +1204,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       try { localStorage.setItem('ng-lbcache-' + lbDate, JSON.stringify(rows)); } catch (_) {}
       // 재도전 유도: 오늘 보드에서만 TOP 10 진입 힌트
       const hint = document.getElementById('rank-hint');
-      if (score > 0 && lbDate === dateStr) {
-        if (rows.length < 10 || score > rows[9].s) hint.textContent = T('rankIn');
-        else hint.textContent = T('rankNeed').replace('{n}', rows[9].s - score + 1);
+      if (submitScore > 0 && lbDate === dateStr) {
+        if (rows.length < 10 || submitScore > rows[9].s) hint.textContent = T('rankIn');
+        else hint.textContent = T('rankNeed').replace('{n}', rows[9].s - submitScore + 1);
       }
     }
     catch (_) { if (!cached) lbList.textContent = T('lbError'); }
@@ -1056,7 +1228,13 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // 실제 점수 전송: 익명 인증 신원으로 날짜별 자기 칸에만 기록 (규칙이 경신만 허용).
   // 인증을 아직 쓸 수 없는 환경에서는 레거시 경로로 폴백해 제출이 끊기지 않게 한다.
   async function postScore(name) {
-    const payload = JSON.stringify({ n: name, s: score, d: dateStr, t: Date.now() });
+    const body = { n: name, s: submitScore, d: dateStr, t: Date.now() };
+    // 완주한 깨끗한 런이면 주행 궤적도 함께 올린다 — 1위 고스트로 모두가 같이 달린다
+    if (finished && !reviveUsed && ghostRec.length > 8) {
+      const enc = ghostEncode(ghostRec);
+      if (enc && enc.length <= 1200) body.g = enc;
+    }
+    const payload = JSON.stringify(body);
     const tok = await ensureAuth();
     let done = false;
     if (tok && authUid) {
@@ -1078,7 +1256,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   }
   // 게임오버 시 자동 등록: 이름이 이미 있으면 입력창 없이 바로 전송
   async function autoSubmit() {
-    if (!LB_URL || submittedThisRun || !score) return;
+    if (!LB_URL || submittedThisRun || !submitScore) return;
     const name = (localStorage.getItem('ng-name') || '').trim().slice(0, 12);
     if (name) {
       submitRow.style.display = 'none';       // 자동 등록 → 입력 UI 숨김
@@ -1091,7 +1269,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     e.stopPropagation();
     if (!LB_URL || submittedThisRun) return;
     const name = lbName.value.trim().slice(0, 12);
-    if (!name || !score) return;
+    if (!name || !submitScore) return;
     localStorage.setItem('ng-name', name);
     const btn = document.getElementById('lb-send');
     btn.disabled = true;
@@ -1184,10 +1362,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
   function update(dt) {
     elapsed += dt;
-    // 상한(≈640)에 다가갈수록 가속이 줄어든다. 예전엔 선형 무한 가속이라
-    // 후반(7천 점 부근)에 속도가 벽처럼 튀었다. 초반 체감은 거의 그대로 유지되고
-    // 늦게 갈수록 평탄해지며, 후반 난이도는 게이트 패턴(무버·레이저·다중통로)이 맡는다.
-    speed += (640 - speed) * dt * 0.015;
+    // 속도는 '얼마나 오래 달렸나'가 아니라 '몇 번째 게이트인가'로 정해진다.
+    // 시간 기준이면 브레이크를 많이 쓴 사람의 코스가 더 빨라져 똑같은 코스가 아니게 된다.
+    speed += (curSpeedTarget() - speed) * Math.min(1, dt * 1.8);
     // 브레이크/부스트: 감속 ×0.45, 가속 ×1.65 — 에너지 소모/회복
     const thr = throttleNow();
     if (thr !== 0) energy = Math.max(0, energy - (thr > 0 ? 30 : 22) * dt);
@@ -1224,6 +1401,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
     // 게이트 이동/충돌/점수
     dist += spd * dt;
+    if (!reviveUsed) ghostSample();     // 부활한 런은 코스 정렬이 깨지므로 기록하지 않는다
     for (const g of gates) {
       g.x -= spd * dt;
       const gateW = 26;
@@ -1253,49 +1431,52 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       if (!g.passed && g.x < px) {
         g.passed = true;
         gatesPassed++;
-        const gain = 10 * mult;
-        score += gain;
-        popup(px + 24, player.y - 26, '+' + gain, g.color);
-        // 통과한 통로 기준 스킬 보너스
+        // 통과한 통로를 찾아 실력 보너스를 판정한다
         const dy2 = gateDY(g);
         let th = null;
         for (const gp2 of g.gaps) {
           const half = gapHalf(g, gp2), c = gp2.cy + dy2;
           if (player.y > c - half && player.y < c + half) { th = { gp: gp2, c, half }; break; }
         }
+        let gain = SC_GATE * mult, skill = false, label = '';
         if (th) {
+          // 아슬아슬한 라인 — 통로가 좁을수록 기준도 함께 좁아진다
           const edge = Math.min(player.y - (th.c - th.half), (th.c + th.half) - player.y);
-          if (edge < 32) {
-            const b = 5 * mult;
-            score += b;
-            popup(px + 24, player.y - 56, 'CLOSE! +' + b, '#ff2df7');
+          // 통로의 바깥쪽 절반으로 지나가면 CLOSE — 가운데는 안전하지만 점수가 없다
+          if (edge < Math.min(55, th.half * 0.5)) {
+            gain += SC_CLOSE * mult; skill = true; label = 'CLOSE';
           }
-          // 꺼진 레이저 구간을 뚫고 통과 = 스레딩 보너스
+          // 꺼진 레이저 구간을 뚫고 통과
           if (th.gp.laser) {
             const [la, lb] = laserSeg(th.gp, th.c, th.half);
             if (player.y > la && player.y < lb) {
-              const b = 15 * mult;
-              score += b;
-              popup(px + 24, player.y - 86, 'THREAD! +' + b, '#ff2d55');
+              gain += SC_THREAD * mult; skill = true; label = 'THREAD';
             }
           }
         }
-        // 부스트 상태로 통과 = 배짱 보너스
-        if (speedF > 1.25) {
-          const b = 5 * mult;
-          score += b;
-          popup(px + 24, player.y - 116, 'BOOST! +' + b, '#39ff88');
+        // 부스트를 켠 채로 통과
+        if (speedF > 1.25) { gain += SC_BOOST * mult; skill = true; label = label ? label + '+BOOST' : 'BOOST'; }
+        score += gain;
+        if (skill) {
+          chain++;
+          cleanGates++;
+          popup(px + 24, player.y - 46, label + ' +' + gain, '#ff2df7');
+        } else {
+          // 밋밋하게 지나가면 체인이 깎인다 — ×10을 유지하려면 계속 붙어서 달려야 한다
+          if (chain >= CHAIN_PENALTY * 2) popup(px + 24, player.y - 46, 'CHAIN −', '#8f9ac4');
+          chain = Math.max(0, chain - CHAIN_PENALTY);
+          popup(px + 24, player.y - 26, '+' + gain, g.color);
         }
-        // 5게이트마다 배율 상승
-        if (gatesPassed % 5 === 0 && mult < 10) {
-          mult++;
-          popup(px, player.y - 146, mult >= 10 ? '★ MAX POWER!' : '×' + mult, mult >= 10 ? '#ff2df7' : '#ffe14d');
-          multSfx();
-          if (mult >= 10) burst(px, player.y, '#ff2df7', 24);
+        const nm = multOf(chain);
+        if (nm !== mult) {
+          const up = nm > mult;
+          mult = nm;
+          popup(px, player.y - 86, mult >= 10 ? '★ MAX POWER!' : '×' + mult, mult >= 10 ? '#ff2df7' : (up ? '#ffe14d' : '#8f9ac4'));
+          if (up) { multSfx(); if (mult >= 10) burst(px, player.y, '#ff2df7', 24); }
         }
-        // 10게이트마다 체크포인트 팡파레
-        if (g.idx % 10 === 0) {
-          popup(W * 0.5, H * 0.3, '🚩 CHECKPOINT ' + g.idx, '#ffe14d');
+        if (g.finish) onFinish();
+        else if (g.idx % 10 === 0 && g.idx < COURSE_LEN) {
+          popup(W * 0.5, H * 0.3, '🚩 ' + g.idx + ' / ' + COURSE_LEN, '#ffe14d');
           multSfx();
         }
         passSfx();
@@ -1303,24 +1484,21 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         updateHud();
       }
     }
-    if (gates[0].x < -60) {
-      gates.shift();
-      const gap = gapBetween();
-      const nx = gates[gates.length - 1].x + gap;
-      gates.push(makeGate(nx, gap));
-      maybeCoin(nx - gap, nx);
-    }
+    while (gates.length && gates[0].x < -60) gates.shift();
+    while (gates.length < 6) pushNextGate();
 
     // 별 수집
     for (const c of coins) {
       c.x -= spd * dt;
       if (!c.taken && Math.hypot(c.x - px, c.y - player.y) < 28) {
         c.taken = true;
-        const gain = 25 * mult;
+        const gain = SC_STAR * mult;
         score += gain;
         popup(c.x, c.y - 22, '★ +' + gain, '#ffe14d');
-        if (mult < 10) {                     // 별 = 배율 부스터
-          mult++;
+        chain++;                              // 별도 체인을 이어준다
+        const nm = multOf(chain);
+        if (nm !== mult) {
+          mult = nm;
           popup(c.x, c.y - 52, mult >= 10 ? '★ MAX POWER!' : '×' + mult, mult >= 10 ? '#ff2df7' : '#ffe14d');
           if (mult >= 10) burst(c.x, c.y, '#ff2df7', 24);
         }
@@ -1344,6 +1522,23 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       if (p.life <= 0) popups.splice(i, 1);
     }
     if (shakeT > 0) shakeT -= dt;
+  }
+
+  // 피니시 라인 통과 — 여기서 공식 기록이 확정되고, 이후는 오버드라이브 보너스 구간
+  function onFinish() {
+    finished = true;
+    clearTime = elapsed;
+    const timeBonus = Math.max(0, Math.round((coursePar * 1.25 - clearTime) * 45));
+    const fin = 1000 + timeBonus;
+    score += fin;
+    officialScore = score;
+    popup(W * 0.5, H * 0.28, '🏁 COURSE CLEAR  +' + fin, '#ffe14d');
+    if (timeBonus > 0) popup(W * 0.5, H * 0.38, '⏱ ' + clearTime.toFixed(1) + 's  +' + timeBonus, '#39ff88');
+    burst(player.x, player.y, '#ffe14d', 40);
+    burst(player.x, player.y, '#00f0ff', 26);
+    shakeT = 0.3;
+    multSfx();
+    try { if (window.CrazyGames) CrazyGames.SDK.game.happytime(); } catch (_) {}
   }
 
   function burst(x, y, color, n) {
@@ -1390,19 +1585,16 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     clearInterval(reviveTimer);
     document.getElementById('revive-screen').classList.add('hidden');
     reviveUsed = true;
-    // 전방 코스를 새로 깔고 안전한 위치에서 재개
+    // 코스가 고정이므로 죽은 지점의 게이트를 그대로 다시 깔아준다
     gates = []; coins = []; popups = [];
     player.y = H / 2; player.vy = 0;
     player.trail = [];
-    anchorY = H / 2;
-    let gx = W + 300, prevGap = 420;
-    for (let i = 0; i < 6; i++) {
-      gates.push(makeGate(gx, prevGap));
-      const gap = gapBetween();
-      maybeCoin(gx, gx + gap);
-      gx += gap;
-      prevGap = gap;
-    }
+    gateSeq = gatesPassed;
+    for (let i = 0; i < 6; i++) pushNextGate();
+    const lead = 280;                      // 숨 돌릴 거리
+    for (const g of gates) g.x += lead;
+    for (const c of coins) c.x += lead;
+    chain = 0; mult = 1;                   // 부활하면 체인은 끊긴다
     holding = false; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
     energy = 100;
     invulnT = 0;
@@ -1410,22 +1602,84 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     updateHud();
   }
 
+  // 최근 14일 메달 달력 — 돌아올 이유를 눈에 보이게 남긴다
+  function renderCalendar() {
+    const cal = document.getElementById('cal');
+    if (!cal) return;
+    const days = loadDays();
+    cal.innerHTML = '';
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+      const rec = days[d];
+      const el = document.createElement('div');
+      el.className = 'd' + (rec && rec.m ? ' m' + rec.m : '') + (d === dateStr ? ' today' : '');
+      el.title = rec ? d + ' · ' + rec.s : d;
+      el.textContent = rec && rec.m ? MEDAL_ICON[rec.m] : '';
+      cal.appendChild(el);
+    }
+  }
+
+  // 게임오버 화면의 문구 — 언어를 바꿔도 다시 그릴 수 있게 분리
+  function renderOverTexts() {
+    if (!lastRun) return;
+    const r = lastRun;
+    document.getElementById('final-score').textContent = r.official;
+    document.getElementById('best-over').textContent = `${T('best')}: ${r.best}`;
+    document.getElementById('over-label').textContent = r.finished ? T('cleared') : T('over');
+    document.getElementById('reached-line').textContent = r.finished
+      ? T('clearTime').replace('{t}', r.clearTime.toFixed(1))
+      : T('reachedOf').replace('{n}', r.gatesPassed).replace('{m}', COURSE_LEN);
+    const ml = document.getElementById('medal-line');
+    if (r.medal > 0) {
+      ml.classList.remove('hidden');
+      ml.textContent = T('medalLine').replace('{icon}', MEDAL_ICON[r.medal]).replace('{name}', T('m' + r.medal));
+    } else if (r.finished && r.nextCut) {
+      ml.classList.remove('hidden');
+      ml.textContent = T('nextMedal').replace('{n}', r.nextCut.need).replace('{name}', T('m' + r.nextCut.lvl));
+    } else {
+      ml.classList.add('hidden');
+      ml.textContent = '';
+    }
+    const ol = document.getElementById('overdrive-line');
+    ol.classList.toggle('hidden', !r.overdrive);
+    ol.textContent = r.overdrive ? T('overdriveLine').replace('{n}', r.overdrive) : '';
+    document.getElementById('new-best').textContent = T('newBest');
+  }
+
   function finishOver() {
+    // 리더보드에 올라가는 값은 피니시 라인에서 확정된 공식 점수.
+    // 오버드라이브(완주 후 보너스 구간) 점수는 순위에 섞이지 않는다.
+    const official = finished ? officialScore : score;
+    submitScore = official;
+    const overdrive = finished ? score - officialScore : 0;
+    const medal = medalOf(official, finished);
+    let nextCut = null;
+    for (let i = 0; i < MEDAL_CUT.length; i++) {
+      const need = Math.ceil(courseMax * MEDAL_CUT[i]) - official;
+      if (need > 0) { nextCut = { lvl: i + 1, need }; break; }
+    }
     const prevBest = +(localStorage.getItem(BEST_KEY) || 0);
-    const isNewBest = score > prevBest && score > 0;
-    const best = Math.max(score, prevBest);
+    const isNewBest = official > prevBest && official > 0;
+    const best = Math.max(official, prevBest);
     localStorage.setItem(BEST_KEY, best);
     if (gatesPassed > bestG) {
       bestG = gatesPassed;
       localStorage.setItem(BESTG_KEY, bestG);
     }
-    lastRun = { best, gatesPassed, isNewBest };
-    document.getElementById('final-score').textContent = score;
-    document.getElementById('best-over').textContent = `${T('best')}: ${best}`;
-    document.getElementById('reached-line').textContent = T('reached').replace('{n}', gatesPassed);
-    document.getElementById('new-best').textContent = T('newBest');
+    if (official > 0) saveDay({ s: official, m: medal, g: gatesPassed, t: finished ? +clearTime.toFixed(1) : 0 });
+    // 내 베스트 고스트 저장 (부활을 쓰지 않은, 더 좋은 런일 때만)
+    if (isNewBest && !reviveUsed && ghostRec.length > 8) {
+      ghostMine = Uint8Array.from(ghostRec);
+      try { localStorage.setItem('ng-ghost-' + dateStr, ghostEncode(ghostRec)); } catch (_) {}
+    }
+    lastRun = { best, gatesPassed, isNewBest, official, overdrive, medal, nextCut, finished, clearTime };
+    renderOverTexts();
     document.getElementById('new-best').classList.toggle('hidden', !isNewBest);
     document.getElementById('rank-hint').textContent = '';
+    renderCalendar();
+    const csEl = document.getElementById('streak');
+    const cs = clearStreak();
+    if (cs > 0) csEl.textContent = T('clearStreak').replace('{n}', cs);
     try { if (isNewBest && window.CrazyGames) CrazyGames.SDK.game.happytime(); } catch (_) {}
     try { if (window.CrazyGames) CrazyGames.SDK.game.gameplayStop(); } catch (_) {}
     resetSubmitUI();
@@ -1526,10 +1780,23 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         ctx.fillStyle = g.color;
         ctx.font = '800 26px "Segoe UI", sans-serif';
         ctx.fillText(numStr, g.x, 26);
-        if (bestG > 0 && g.idx === bestG + 1) {
+        if (bestG > 0 && g.idx === bestG + 1 && !g.finish) {
           ctx.fillStyle = '#ffe14d';
           ctx.font = '800 16px "Segoe UI", sans-serif';
           ctx.fillText('★ BEST', g.x, 56);
+        }
+        if (g.finish) {
+          // 피니시 라인 — 체커 기둥 + 금색 표지 (shadowBlur 없이)
+          ctx.globalAlpha = 0.5;
+          for (let yy = 0; yy < H; yy += 24) {
+            ctx.fillStyle = ((yy / 24) | 0) % 2 ? '#ffffff' : '#1a1030';
+            ctx.fillRect(g.x - 20, yy, 7, 24);
+            ctx.fillRect(g.x + 13, yy, 7, 24);
+          }
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#ffe14d';
+          ctx.font = '800 20px "Segoe UI", sans-serif';
+          ctx.fillText('🏁 FINISH', g.x, 58);
         }
         ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
         // 레이저: 켜지면 붉게, 켜지기 직전엔 흐릿한 예고
@@ -1615,6 +1882,12 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       }
       ctx.globalAlpha = 1;
       ctx.textAlign = 'start';
+    }
+
+    // 고스트 (내 베스트 · 월드 1위) — 코스가 거리 기준으로 고정이라 정확히 겹쳐 달린다
+    if (state === 'play' || state === 'paused') {
+      drawGhost(ghostWorld, '#ffd700', 0.30);
+      drawGhost(ghostMine, '#7ff5ff', 0.36);
     }
 
     // 플레이어 + 트레일
@@ -1756,6 +2029,21 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     }
   }
 
+  function drawGhost(g, color, alpha) {
+    const y = ghostY(g, dist);
+    if (y == null) return;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath(); ctx.arc(player.x, y, 11, 0, 7); ctx.fill();
+    ctx.globalAlpha = alpha * 0.55;
+    ctx.beginPath();
+    const y2 = ghostY(g, dist - 70), y3 = ghostY(g, dist - 140);
+    if (y2 != null) { ctx.moveTo(player.x - 20, y2); ctx.arc(player.x - 28, y2, 7, 0, 7); }
+    if (y3 != null) { ctx.moveTo(player.x - 46, y3); ctx.arc(player.x - 52, y3, 4.5, 0, 7); }
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
   function roundRect(x, y, w, h, r) {
     ctx.beginPath();
     ctx.roundRect(x, y, w, Math.max(h, 0), r);
@@ -1842,9 +2130,22 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     } catch (_) {}
   })();
 
+  // 오늘 1위의 궤적을 받아둔다 (없으면 조용히 넘어감)
+  async function loadWorldGhost() {
+    if (!LB_URL) return;
+    try {
+      const rows = await lbAll(dateStr);
+      const top = rows.find(e => e && e.g);
+      if (top) { ghostWorld = ghostDecode(top.g); ghostWorldName = top.n; }
+    } catch (_) {}
+  }
+  loadWorldGhost();
+
   function startGame() {
     ensureAudio();
     reset();
+    submitScore = 0;
+    ghostMine = ghostDecode(localStorage.getItem('ng-ghost-' + dateStr) || '');
     state = 'play';
     startScreen.classList.add('hidden');
     overScreen.classList.add('hidden');
@@ -1868,7 +2169,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     e.stopPropagation();
     // 어디서 플레이하든(포털 임베드 포함) 공유는 항상 대표 주소로 보낸다.
     // 실행 주소를 쓰면 포털 도메인이나 옛 주소가 퍼진다.
-    const text = T('shareText').replace('{date}', dateStr).replace('{score}', score).replace('{url}', 'https://neon.habitschool.kr/');
+    const text = T('shareText').replace('{date}', dateStr).replace('{score}', submitScore).replace('{url}', 'https://neon.habitschool.kr/');
     try {
       if (navigator.share) {
         await navigator.share({ text });
