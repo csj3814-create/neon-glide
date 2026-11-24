@@ -42,7 +42,7 @@ $html = [regex]::Replace($html, $cgPattern, [System.Text.RegularExpressions.Matc
 # --- 2. 시작/재시작 버튼: 게임 스코프에 광고 일시정지 훅을 심고, 재시작 때 광고 노출 ---
 # 이 코드는 state/ac/soundOn과 같은 스코프에 있어야 하므로 리스너 등록 지점에 끼워 넣는다.
 $startLine  = "  document.getElementById('btn-start').addEventListener('click', e => { e.stopPropagation(); startGame(); });"
-$retryLine  = "  document.getElementById('btn-retry').addEventListener('click', e => { e.stopPropagation(); startGame(); });"
+$retryLine  = "  document.getElementById('btn-retry').addEventListener('click', e => { e.stopPropagation(); startGame(runIdx); });"
 if (($html -split [regex]::Escape($startLine)).Count -ne 2) { throw 'btn-start 리스너 라인을 찾지 못했습니다' }
 if (($html -split [regex]::Escape($retryLine)).Count -ne 2) { throw 'btn-retry 리스너 라인을 찾지 못했습니다' }
 
@@ -56,9 +56,9 @@ $startLine
 "@ -replace "`r`n", "`n"
 $html = $html.Replace($startLine, $hookLines)
 # (b) 재시작 리스너에 광고 노출 호출을 덧붙인다.
-$retryNew = "  document.getElementById('btn-retry').addEventListener('click', e => { e.stopPropagation(); startGame(); if (window.__gdShowAd) window.__gdShowAd(); });"
+$retryNew = "  document.getElementById('btn-retry').addEventListener('click', e => { e.stopPropagation(); startGame(runIdx); if (window.__gdShowAd) window.__gdShowAd(); });"
 $html = $html.Replace($retryLine, $retryNew)
-if ($html -notmatch '__ngAdPause = function' -or $html -notmatch 'startGame\(\); if \(window\.__gdShowAd\)') {
+if ($html -notmatch '__ngAdPause = function' -or $html -notmatch 'startGame\(runIdx\); if \(window\.__gdShowAd\)') {
   throw '광고 훅/재시작 주입 검증 실패'
 }
 
