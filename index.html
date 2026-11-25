@@ -309,7 +309,7 @@
     #start-screen #howto { font-size: 9.5px; line-height: 1.32; max-width: min(560px, 92vw); }
     #start-screen .seed-tag { font-size: 9.5px; padding: 2px 7px; }
     #start-screen #next-course { font-size: 9.5px; }
-    #start-screen #best-start, #start-screen #streak { font-size: 10px; }
+    #start-screen #streak { font-size: 10px; }
     #start-screen #btn-start { padding: 7px 20px; font-size: 14px; }
     #start-screen .linky { font-size: 10px; }
   }
@@ -354,7 +354,6 @@
   <div class="seed-tag" id="seed-tag-start"></div>
   <div id="next-course"></div>
   <p class="sub" id="howto"></p>
-  <div class="best" id="best-start"></div>
   <div class="best" id="streak"></div>
   <div id="cal-wrap"><div id="cal-label"></div><div id="cal"></div></div>
   <div id="ybadge"></div>
@@ -623,8 +622,6 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     const pbox = document.getElementById('privacy-box');
     document.getElementById('privacy-text').textContent = T('privacyText');
     document.getElementById('btn-privacy').textContent = pbox.classList.contains('hidden') ? T('privacy') : T('privacyClose');
-    const dt = dailyTotal();
-    document.getElementById('best-start').textContent = dt ? `${T('best')}: ${dt.toLocaleString()}` : '';
     const cs = clearStreak();
     document.getElementById('streak').textContent =
       cs > 0 ? T('clearStreak').replace('{n}', cs) : (streakN > 1 ? T('streak').replace('{n}', streakN) : '');
