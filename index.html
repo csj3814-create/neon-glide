@@ -703,6 +703,13 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   let gates = [], particles = [], coins = [], popups = [];
   let stars = seededStars(mulberry32(hashStr('STARS:' + dateStr)));
   let player, speed, score, dist, holding, elapsed;
+  // 상승 반응. 예전엔 누르든 떼든 같은 계수(3.6)를 써서, 전속 하강 중에 누르면
+  // 하강이 멈추기까지만 193ms가 걸렸다 — 150ms짜리 짧은 탭은 끝까지 떨어지기만 해서
+  // '클릭이 안 먹었다'가 된다. 올라가는 쪽만 빠르게 물리고, 떨어지는 쪽은 활공 느낌을 남긴다.
+  const LIFT_K = 9, FALL_K = 4.2;
+  // 프레임과 프레임 사이에 눌렀다 뗀 탭은 update()가 영영 못 본다 — 최소 상승 시간을 보장한다
+  const HOLD_MIN = 0.09;
+  let holdMin = 0;
   let gatesPassed = 0, mult = 1;
   let shakeT = 0;
   // ---------- 점수 배분 ----------
@@ -1090,7 +1097,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     score = 0;
     mult = 1;
     dist = 0; elapsed = 0;
-    holding = false;
+    holding = false; holdMin = 0;
     ghostRec = [];
     ghostFrozen = false; ghostFreezeScore = 0;
     for (let i = 0; i < 6; i++) pushNextGate();
@@ -1463,11 +1470,12 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     if (state === 'paused') { togglePause(); return; }     // 일시정지 중 아무 곳이나 탭 = 재개
     if (state !== 'play') return;
     if (e.pointerType === 'mouse') {
-      if (e.button === 0) holding = true;                  // 좌클릭 = 상승
+      if (e.button === 0) { holding = true; holdMin = HOLD_MIN; }   // 좌클릭 = 상승
       e.preventDefault(); return;
     }
     ptrZone.set(e.pointerId, zoneOf(e));
     recomputeTouch();
+    if (holding) holdMin = HOLD_MIN;
     e.preventDefault();
   }
   function move(e) {
@@ -1487,7 +1495,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // 창 밖에서 손을 떼면 pointerup이 안 온다 — 눌린 채로 굳어 천장에 박히는 걸 막는다
   function releaseAll() {
     ptrZone.clear();
-    holding = false; touchBrake = false; touchBoost = false;
+    holding = false; holdMin = 0; touchBrake = false; touchBoost = false;
     mouseBrake = false; keyThrottle = 0;
   }
   // 창이 포커스를 잃으면 클릭도 키도 도착하지 않는다 — 그대로 두면 가만히 앉아 죽는다
@@ -1512,7 +1520,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   pauseBtn.addEventListener('click', e => { e.stopPropagation(); togglePause(); });
   window.addEventListener('keydown', e => {
     if (e.code === 'Space' || e.code === 'KeyW') {
-      if (state === 'play') { holding = true; e.preventDefault(); }
+      if (state === 'play') { holding = true; holdMin = HOLD_MIN; e.preventDefault(); }
     }
     else if (e.code === 'KeyA' || e.code === 'ArrowDown') { keyThrottle = -1; e.preventDefault(); }
     else if (e.code === 'KeyD' || e.code === 'ArrowUp') { keyThrottle = 1; e.preventDefault(); }
@@ -1555,9 +1563,12 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     const px = W * 0.28;
     player.x = px;
 
-    // 활공 물리: 누르면 부드럽게 상승, 떼면 하강
-    const target = holding ? -370 : 370;
-    player.vy += (target - player.vy) * Math.min(1, dt * 3.6);
+    // 활공 물리: 누르면 상승, 떼면 하강. 누른 순간 눈에 보이게 떠야 한다.
+    if (holdMin > 0) holdMin = Math.max(0, holdMin - dt);
+    const lift = holding || holdMin > 0;
+    const target = lift ? -370 : 370;
+    // 지수 보간 — 프레임률이 흔들려도 반응 속도가 같다 (선형 보간은 저프레임에서 둔해진다)
+    player.vy += (target - player.vy) * (1 - Math.exp(-(lift ? LIFT_K : FALL_K) * dt));
     player.y += player.vy * dt;
 
     player.trail.unshift({ x: px, y: player.y });
@@ -1776,7 +1787,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     for (const c of coins) c.x += lead;
     ghostFrozen = true; ghostFreezeScore = score;   // 여기까지가 코스와 정렬된 궤적
     chain = 0; mult = 1;                   // 부활하면 체인은 끊긴다
-    holding = false; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
+    holding = false; holdMin = 0; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
     energy = 100;
     invulnT = 0;
     state = 'play';
