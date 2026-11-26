@@ -144,6 +144,18 @@
     border: 1px solid rgba(120, 100, 200, 0.35);
     border-radius: 10px; padding: 12px 16px; text-align: left;
   }
+  /* 오늘 세계 1위 — 닿을 수 있는 목표선 */
+  #day-top {
+    font-size: 13px; color: #ffd166;
+    text-shadow: 0 0 10px rgba(255, 209, 102, 0.45);
+    margin-top: -4px; min-height: 16px;
+  }
+  #day-top.lead { color: #39ff88; text-shadow: 0 0 10px rgba(57, 255, 136, 0.5); }
+  /* 플레이 중에는 화면 구석 버튼들이 클릭을 먹지 않도록 비운다 (일시정지하면 돌아온다) */
+  body.playing #lang,
+  body.playing #fs-btn,
+  body.playing #mute { opacity: 0; pointer-events: none; }
+  #lang, #fs-btn, #mute { transition: opacity .18s ease; }
   #toast {
     position: fixed; bottom: 34px; left: 50%;
     transform: translateX(-50%) translateY(20px);
@@ -359,6 +371,7 @@
   <div id="ybadge"></div>
   <div id="run-list"></div>
   <div id="day-total"></div>
+  <div id="day-top"></div>
   <button id="btn-start"></button>
   <button class="ghost hidden" id="btn-install"></button>
   <button class="linky" id="btn-privacy"></button>
@@ -479,6 +492,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       backToRuns: "Today's runs", retryRun: 'Retry RUN {n}',
       lockedRow: 'Clear RUN {n} first', unlockedMsg: '🔓 RUN {n} unlocked!',
       dayDoneMsg: '🏆 All three runs cleared today!', dayTotalLine: 'Daily total {s}',
+      dayTopLine: "👑 Today's #1 {s}", dayTopNone: '👑 No score yet today — be the first',
       reachedOf: 'Gate {n} / {m}', rankedScore: 'Ranked score {s}',
       overdriveLine: '⚡ Overdrive +{n} (not ranked)',
       medalLine: '{icon} {name}', nextMedal: '{n} pts to {name}',
@@ -503,6 +517,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       backToRuns: '오늘의 코스', retryRun: 'RUN {n} 다시',
       lockedRow: 'RUN {n} 완주 후 열림', unlockedMsg: '🔓 RUN {n} 열렸습니다!',
       dayDoneMsg: '🏆 오늘 세 코스 모두 완주!', dayTotalLine: '하루 합계 {s}점',
+      dayTopLine: '👑 오늘 1위 {s}점', dayTopNone: '👑 오늘 아직 기록 없음 — 1등 가능',
       reachedOf: '게이트 {n} / {m}', rankedScore: '순위 점수 {s}',
       overdriveLine: '⚡ 오버드라이브 +{n} (순위 미반영)',
       medalLine: '{icon} {name}', nextMedal: '{name}까지 {n}점',
@@ -627,6 +642,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       cs > 0 ? T('clearStreak').replace('{n}', cs) : (streakN > 1 ? T('streak').replace('{n}', streakN) : '');
     document.getElementById('cal-label').textContent = T('calLabel');
     renderCalendar();
+    renderRuns();            // 런 카드와 합계 줄도 새 언어로 다시 그린다
     // 게임오버 화면의 동적 텍스트도 현재 언어로 다시 적용
     if (lastRun) renderOverTexts();
     if (yRankIdx >= 0) document.getElementById('ybadge').textContent = T('yRank').replace('{n}', yRankIdx + 1);
@@ -935,9 +951,13 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   const GHOST_STEP = 90;                   // 필드 좌표 90px마다 한 번 y를 기록
   let ghostRec = [], ghostMine = null, ghostWorld = null, ghostWorldName = '';
   let worldGhosts = [];              // 월드 1위의 런별 궤적
+  let worldTop = 0, worldTopName = '', worldTopLoaded = false;   // 오늘 세계 1위 합계
   function ghostKey(ri) { return 'ng-ghost-' + dateStr + '-' + RUNS[ri].key; }
   function ghostScoreKey(ri) { return 'ng-ghostscore-' + dateStr + '-' + RUNS[ri].key; }
+  // 부활하면 코스가 앞으로 밀려 거리-y 대응이 깨진다 — 그 지점에서 기록을 얼린다
+  let ghostFrozen = false, ghostFreezeScore = 0;
   function ghostSample() {
+    if (ghostFrozen) return;
     const k = (dist / GHOST_STEP) | 0;
     if (k < ghostRec.length || k > 4000) return;
     const v = Math.max(0, Math.min(255, Math.round(player.y / H * 255)));
@@ -1072,6 +1092,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     dist = 0; elapsed = 0;
     holding = false;
     ghostRec = [];
+    ghostFrozen = false; ghostFreezeScore = 0;
     for (let i = 0; i < 6; i++) pushNextGate();
   }
 
@@ -1328,6 +1349,11 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     try {
       const rows = await lbAll(lbDate);
       renderLb(rows, myName);
+      if (lbDate === dateStr) {
+        worldTopLoaded = true;
+        if (rows.length) { worldTop = rows[0].s || 0; worldTopName = rows[0].n || ''; }
+        renderRuns();
+      }
       try { localStorage.setItem('ng-lbcache-' + lbDate, JSON.stringify(rows)); } catch (_) {}
       // 재도전 유도: 오늘 보드에서만 TOP 10 진입 힌트
       const hint = document.getElementById('rank-hint');
@@ -1424,7 +1450,16 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     }
     holding = rise; touchBoost = boost; touchBrake = brake;
   }
+  // 플레이 중 입력을 가져가도 되는 건 화면 구석 컨트롤뿐이다. 그 밖의 모든 요소는
+  // 캡처 단계에서 먼저 받으므로, 어디를 눌러도 상승이 걸린다 —
+  // 예전엔 자식 요소의 stopPropagation 하나가 조용히 입력을 삼켜 그대로 죽었다.
+  const CHROME_SEL = '#pause-btn, #mute, #fs-btn, #lang';
+  function chromeHit(e) {
+    const t = e.target;
+    return !!(t && t.closest && t.closest(CHROME_SEL));
+  }
   function press(e) {
+    if (chromeHit(e)) return;                              // 구석 버튼은 자기 일만 한다
     if (state === 'paused') { togglePause(); return; }     // 일시정지 중 아무 곳이나 탭 = 재개
     if (state !== 'play') return;
     if (e.pointerType === 'mouse') {
@@ -1444,10 +1479,24 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     if (e) ptrZone.delete(e.pointerId);
     recomputeTouch();
   }
-  window.addEventListener('pointerdown', press);
-  window.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', release);
-  window.addEventListener('pointercancel', release);
+  // 캡처 단계 — 중간의 어떤 요소도 입력을 가로채지 못하게
+  window.addEventListener('pointerdown', press, true);
+  window.addEventListener('pointermove', move, true);
+  window.addEventListener('pointerup', release, true);
+  window.addEventListener('pointercancel', release, true);
+  // 창 밖에서 손을 떼면 pointerup이 안 온다 — 눌린 채로 굳어 천장에 박히는 걸 막는다
+  function releaseAll() {
+    ptrZone.clear();
+    holding = false; touchBrake = false; touchBoost = false;
+    mouseBrake = false; keyThrottle = 0;
+  }
+  // 창이 포커스를 잃으면 클릭도 키도 도착하지 않는다 — 그대로 두면 가만히 앉아 죽는다
+  function autoPause() {
+    releaseAll();
+    if (state === 'play') togglePause();
+  }
+  window.addEventListener('blur', autoPause);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
   // 마우스 우클릭 = 브레이크
   window.addEventListener('mousedown', e => { if (e.button === 2 && state === 'play') mouseBrake = true; });
   window.addEventListener('mouseup', e => { if (e.button === 2) mouseBrake = false; });
@@ -1476,9 +1525,16 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
   // ---------- 게임 루프 ----------
   let lastT = 0;
+  // 달리는 동안에는 언어 선택·전체화면·음소거가 클릭을 삼켜 '안 눌리는 구역'이 됐다.
+  // 상태 전이 지점이 여러 곳이라, 루프에서 한 번만 동기화한다.
+  let chromeOff = false;
   function loop(t) {
     const dt = Math.min((t - lastT) / 1000, 0.033);
     lastT = t;
+    if (chromeOff !== (state === 'play')) {
+      chromeOff = state === 'play';
+      document.body.classList.toggle('playing', chromeOff);
+    }
     if (state === 'play') update(dt);
     draw(t / 1000);
     requestAnimationFrame(loop);
@@ -1718,6 +1774,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     const lead = 280;                      // 숨 돌릴 거리
     for (const g of gates) g.x += lead;
     for (const c of coins) c.x += lead;
+    ghostFrozen = true; ghostFreezeScore = score;   // 여기까지가 코스와 정렬된 궤적
     chain = 0; mult = 1;                   // 부활하면 체인은 끊긴다
     holding = false; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
     energy = 100;
@@ -1754,10 +1811,21 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       }
       box.appendChild(row);
     }
-    const tot = dailyTotal(), dmax = dailyMax(), dm = medalOfDay();
+    const tot = dailyTotal(), dm = medalOfDay();
     const dt = document.getElementById('day-total');
-    dt.textContent = T('dayTotal') + ' ' + tot.toLocaleString()
-      + (dmax ? '  /  ' + dmax.toLocaleString() : '') + (dm ? '  ' + MEDAL_ICON[dm] : '');
+    // 비교 대상은 이론상 만점이 아니라 '오늘 세계 1위' — 닿을 수 있는 숫자여야 다시 달린다
+    dt.textContent = T('dayTotal') + ' ' + tot.toLocaleString() + (dm ? '  ' + MEDAL_ICON[dm] : '');
+    const tl = document.getElementById('day-top');
+    if (tl) {
+      if (worldTop > 0) {
+        tl.textContent = T('dayTopLine').replace('{s}', worldTop.toLocaleString())
+          + (worldTopName ? '  ·  ' + String(worldTopName).slice(0, 12) : '');
+        tl.classList.toggle('lead', tot > 0 && tot >= worldTop);
+      } else {
+        tl.textContent = worldTopLoaded ? T('dayTopNone') : '';
+        tl.classList.remove('lead');
+      }
+    }
     const bs = document.getElementById('btn-start');
     bs.textContent = done ? T('startImprove') : T('startRun').replace('{n}', nxt + 1);
   }
@@ -1841,16 +1909,17 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       localStorage.setItem(BESTG_KEY, bestG);
     }
     if (submitScore > 0) saveDay({ s: submitScore, m: medalOfDay(), g: gatesPassed, r: runBest.slice(), t: finished ? +clearTime.toFixed(1) : 0 });
-    // 내 베스트 고스트: 부활을 쓰지 않은 런 중 가장 좋은 것.
-    // 오늘의 최고 점수와 따로 재는 이유는, 부활을 쓴 런이 점수는 높아도
-    // 코스 정렬이 깨져 고스트로 다시 달릴 수 없기 때문이다.
-    if (!reviveUsed && ghostRec.length > 8) {
+    // 내 베스트 고스트. 부활을 쓴 런은 '부활 직전까지'만 코스와 정렬되므로
+    // 그 지점의 점수로 베스트를 가리고 잘린 궤적을 저장한다. 예전처럼 부활한 런을
+    // 통째로 버리면, 거의 항상 부활을 쓰게 되는 RUN 2·3에는 고스트가 영영 안 생긴다.
+    const gScore = reviveUsed ? ghostFreezeScore : official;
+    if (ghostRec.length > 8 && gScore > 0) {
       const gsKey = ghostScoreKey(runIdx);
-      if (official > +(localStorage.getItem(gsKey) || 0)) {
+      if (gScore > +(localStorage.getItem(gsKey) || 0)) {
         ghostMine = Uint8Array.from(ghostRec);
         try {
           localStorage.setItem(ghostKey(runIdx), ghostEncode(ghostRec));
-          localStorage.setItem(gsKey, official);
+          localStorage.setItem(gsKey, gScore);
         } catch (_) {}
       }
     }
@@ -2320,6 +2389,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     if (!LB_URL) return;
     try {
       const rows = await lbAll(dateStr);
+      worldTopLoaded = true;
+      if (rows.length) { worldTop = rows[0].s || 0; worldTopName = rows[0].n || ''; }
+      renderRuns();
       const top = rows.find(e => e && e.g);
       if (!top) return;
       ghostWorldName = top.n;
@@ -2341,6 +2413,8 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     ghostMine = ghostDecode(localStorage.getItem(ghostKey(ri)) || '');
     ghostWorld = worldGhosts[ri] || null;
     state = 'play';
+    // 직전에 누른 버튼이나 언어 셀렉트에 포커스가 남아 있으면 Space·방향키를 그쪽이 먹는다
+    try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (_) {}
     startScreen.classList.add('hidden');
     overScreen.classList.add('hidden');
     updateHud();
