@@ -722,6 +722,18 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   const CHAIN_PER_LEVEL = 3, CHAIN_PENALTY = 1;
   function multOf(c) { return 1 + Math.min(9, (c / CHAIN_PER_LEVEL) | 0); }
   let chain = 0;                           // 연속 실력 플레이 카운터 (= 배율의 원천)
+  // ×10에 올라서면 잠깐은 무지개를 붙잡아 둔다. 예전엔 체인 27에서 ×10이 켜지고
+  // 바로 다음 평범한 통과에 26 → ×9가 되어 꼬리·오라·방패가 한꺼번에 꺼졌다 —
+  // 보상이 켜졌다는 걸 알아차릴 시간조차 없었고, 벽에 닿을 때쯤엔 방패도 이미 없었다.
+  const MAX_HOLD = 6;
+  let maxHoldT = 0;
+  // 체인에서 배율을 다시 계산한다. 실력으로 27을 넘긴 순간마다 보유 시간을 갱신하고,
+  // 보유 중에는 체인이 깎여도 ×10을 바닥으로 받쳐 준다.
+  function syncMult() {
+    const raw = multOf(chain);
+    if (raw >= 10) maxHoldT = MAX_HOLD;
+    return maxHoldT > 0 ? Math.max(10, raw) : raw;
+  }
   let finished = false, clearTime = 0, officialScore = 0;   // 피니시 라인 통과 기록
   let cleanGates = 0;                      // 노미스로 지나온 게이트 수 (연출용)
   let speedF = 1;                          // 브레이크/부스트 속도 배율
@@ -729,9 +741,13 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   let energy = 100;                        // 가감속 에너지 (부스트/브레이크 소모, 순항 시 회복)
   let invulnT = 0;                         // MAX 방패 발동 후 무적 시간
   // MAX 모드(×10) 방패: 벽 −10★, 레이저 −5★ 하며 살아남기. 방패 발동 성공 시 true
+  // 방패를 쓰면 체인이 0으로 날아가 ×1이 됐다 — 한 번 살아나고도 남는 게 없었다.
+  // 이제 ×5 선에서 멈추니, 살아난 뒤에도 다시 쌓아 올릴 발판이 남는다.
+  const SHIELD_FLOOR = CHAIN_PER_LEVEL * 4;
   function maxShield(cost) {
     if (mult < 10) return false;
-    chain = Math.max(0, chain - cost * CHAIN_PER_LEVEL);
+    maxHoldT = 0;                          // 방패를 썼으면 보유 시간도 여기서 끝난다
+    chain = Math.max(SHIELD_FLOOR, chain - cost * CHAIN_PER_LEVEL);
     mult = multOf(chain);
     updateHud();
     popup(player.x + 22, player.y - 42, '🛡 −' + cost + '★', '#ffe14d');
@@ -1093,7 +1109,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     gateSeq = 0;
     reviveUsed = false;
     finished = false; clearTime = 0; officialScore = 0;
-    chain = 0; cleanGates = 0;
+    chain = 0; cleanGates = 0; maxHoldT = 0;
     score = 0;
     mult = 1;
     dist = 0; elapsed = 0;
@@ -1584,6 +1600,19 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
     if (invulnT > 0) { invulnT -= dt; player.y = Math.max(20, Math.min(H - 20, player.y)); }
 
+    // MAX 보유 시간이 끝나면 체인이 말하는 배율로 돌아온다
+    if (maxHoldT > 0) {
+      maxHoldT = Math.max(0, maxHoldT - dt);
+      if (maxHoldT === 0) {
+        const nm = multOf(chain);
+        if (nm !== mult) {
+          mult = nm;
+          popup(px, player.y - 86, '×' + mult, '#8f9ac4');
+          updateHud();
+        }
+      }
+    }
+
     // 천장/바닥 충돌
     if (invulnT <= 0 && (player.y < 14 || player.y > H - 14)) {
       if (maxShield(10)) { player.y = player.y < H / 2 ? 70 : H - 70; player.vy = 0; }
@@ -1658,7 +1687,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
           chain = Math.max(0, chain - CHAIN_PENALTY);
           popup(px + 24, player.y - 26, '+' + gain, g.color);
         }
-        const nm = multOf(chain);
+        const nm = syncMult();
         if (nm !== mult) {
           const up = nm > mult;
           mult = nm;
@@ -1687,7 +1716,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         score += gain;
         popup(c.x, c.y - 22, '★ +' + gain, '#ffe14d');
         chain++;                              // 별도 체인을 이어준다
-        const nm = multOf(chain);
+        const nm = syncMult();
         if (nm !== mult) {
           mult = nm;
           popup(c.x, c.y - 52, mult >= 10 ? '★ MAX POWER!' : '×' + mult, mult >= 10 ? '#ff2df7' : '#ffe14d');
@@ -1786,7 +1815,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     for (const g of gates) g.x += lead;
     for (const c of coins) c.x += lead;
     ghostFrozen = true; ghostFreezeScore = score;   // 여기까지가 코스와 정렬된 궤적
-    chain = 0; mult = 1;                   // 부활하면 체인은 끊긴다
+    chain = 0; mult = 1; maxHoldT = 0;     // 부활하면 체인은 끊긴다
     holding = false; holdMin = 0; keyThrottle = 0; mouseBrake = false; touchBrake = false; touchBoost = false;
     energy = 100;
     invulnT = 0;
