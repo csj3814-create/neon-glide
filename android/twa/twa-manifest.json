@@ -20,8 +20,8 @@
     "path": "C:/Users/user/NeonGlide-PlayStore-KEYS/package/signing.keystore",
     "alias": "my-key-alias"
   },
-  "appVersionName": "1.0.1",
-  "appVersionCode": 2,
+  "appVersionName": "1.0.2",
+  "appVersionCode": 3,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "fallbackType": "customtabs",
@@ -36,7 +36,9 @@
   "minSdkVersion": 24,
   "orientation": "landscape",
   "fingerprints": [],
-  "additionalTrustedOrigins": [],
+  "additionalTrustedOrigins": [
+    "csj3814-create.github.io"
+  ],
   "retainedBundles": [],
   "protocolHandlers": [],
   "fileHandlers": [],
