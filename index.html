@@ -109,10 +109,17 @@
     align-self: flex-start;
   }
   #mult-badge.fever {
-    color: #ff2df7 !important;
-    text-shadow: 0 0 16px #ff2df7 !important;
+    color: #ffc93c !important;
+    text-shadow: 0 0 16px rgba(255, 201, 60, 0.95) !important;
     animation: feverPulse 0.5s infinite alternate;
   }
+  /* ×10 = 방패 보유. 꼬리와 같은 무지개로 묶어 둔다 */
+  #mult-badge.max {
+    color: #ff2df7 !important;
+    text-shadow: 0 0 18px #ff2df7 !important;
+    animation: maxHue 0.9s linear infinite;
+  }
+  @keyframes maxHue { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
   #gate-badge {
     font-size: 22px !important;
     font-weight: 800;
@@ -476,7 +483,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // ---------- 다국어 ----------
   const I18N = {
     en: { name: 'English',
-      howto: 'Hold to rise, release to dive.<br>A = brake · D = boost · P = pause (mobile: 2nd finger left = brake, right = boost).<br>🏁 <b>Three runs a day — warm-up, main, climax.</b> Clear one to unlock the next; your daily score is the sum of your best on each. Shave edges, thread lasers and pass on boost to build your ★ chain (3 skill passes = 1 level).<br><b>The exact same three courses for everyone in the world today.</b>',
+      howto: 'Hold to rise, release to dive.<br>A = brake · D = boost · P = pause (mobile: 2nd finger left = brake, right = boost).<br>🏁 <b>Three runs a day — warm-up, main, climax.</b> Clear one to unlock the next; your daily score is the sum of your best on each. Shave edges, thread lasers and pass on boost to build your ★ chain (3 skill passes = 1 level). At ×10 the tail turns rainbow and 🛡 appears — one crash is survivable, paid for in ★.<br><b>The exact same three courses for everyone in the world today.</b>',
       todayCourse: "Today's course", dailyCourse: 'daily course', best: "Today's best",
       start: "START TODAY'S RUN", over: 'GAME OVER', share: '📤 Share score', retry: 'Retry',
       copied: 'Score copied — challenge a friend! 📋',
@@ -501,7 +508,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       privacy: 'Privacy', privacyClose: 'Close',
       privacyText: 'No account, no tracking, no ads. The only thing that reaches our server is the name you type when you submit a score, along with that score and the date — it is public on the leaderboard. Your device holds an anonymous ID so that only you can improve your own entry, plus your settings and best scores, all in local storage. Clear your browser data and all of it is gone.' },
     ko: { name: '한국어',
-      howto: '누르고 있으면 상승, 떼면 하강.<br>A=감속 · D=가속 · P=일시정지 (모바일: 두 번째 손가락 왼쪽=감속·오른쪽=가속).<br>🏁 <b>하루에 세 코스 — 워밍업·본편·클라이맥스.</b> 하나를 완주하면 다음이 열리고, 오늘 점수는 세 코스 최고점의 합입니다. 가장자리를 스치듯 지나고, 레이저를 뚫고, 부스트로 통과하면 ★ 체인이 쌓입니다 (실력 플레이 3번에 한 단계).<br><b>오늘은 전 세계가 똑같은 세 코스를 달립니다.</b>',
+      howto: '누르고 있으면 상승, 떼면 하강.<br>A=감속 · D=가속 · P=일시정지 (모바일: 두 번째 손가락 왼쪽=감속·오른쪽=가속).<br>🏁 <b>하루에 세 코스 — 워밍업·본편·클라이맥스.</b> 하나를 완주하면 다음이 열리고, 오늘 점수는 세 코스 최고점의 합입니다. 가장자리를 스치듯 지나고, 레이저를 뚫고, 부스트로 통과하면 ★ 체인이 쌓입니다 (실력 플레이 3번에 한 단계). ×10이 되면 꼬리가 무지개가 되고 🛡 표시가 등니다 — 한 번은 ★를 치르고 살아납니다.<br><b>오늘은 전 세계가 똑같은 세 코스를 달립니다.</b>',
       todayCourse: '오늘의 코스', dailyCourse: '데일리 코스', best: '오늘의 최고 기록',
       start: '오늘의 코스 시작', over: 'GAME OVER', share: '📤 점수 공유하기', retry: '다시 도전',
       copied: '점수가 복사됐어요 — 친구에게 도전장을! 📋',
@@ -770,8 +777,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   function updateHud() {
     document.getElementById('score-live').textContent = score;
     const badge = document.getElementById('mult-badge');
-    badge.textContent = mult > 1 ? '×' + mult : '';
+    badge.textContent = mult > 1 ? (mult >= 10 ? '🛡 ×' + mult : '×' + mult) : '';
     badge.classList.toggle('fever', mult >= 5);
+    badge.classList.toggle('max', mult >= 10);
     document.getElementById('gate-badge').textContent =
       gatesPassed >= CUR.len ? 'R' + (runIdx + 1) + ' 🏁 OVERDRIVE ' + (gatesPassed - CUR.len)
       : (gatesPassed > 0 ? 'R' + (runIdx + 1) + '  ' + gatesPassed + ' / ' + CUR.len : '');
@@ -2191,7 +2199,11 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         const p = player.trail[i];
         const f = 1 - i / tlen;
         ctx.globalAlpha = f * (maxMode ? 0.8 : 0.5);
-        ctx.fillStyle = fever ? `hsl(${(t * 400 + i * 26) % 360}, 100%, ${maxMode ? 66 : 62}%)` : '#00f0ff';
+        // 꼬리 색이 곧 '방패가 있나'를 말해야 한다. 예전엔 ×5부터 이미 무지개라
+        // 방패 없는 ×5~×9와 방패 있는 ×10이 똑같아 보였고, 무지개를 달고도 한 방에 죽었다.
+        // 이제 ×5~×9는 금색 한 가지, 무지개는 ×10에서만 돈다.
+        ctx.fillStyle = maxMode ? `hsl(${(t * 400 + i * 26) % 360}, 100%, 66%)`
+          : (fever ? `hsl(${44 + Math.sin(t * 3 + i * 0.25) * 12}, 100%, 62%)` : '#00f0ff');
         ctx.beginPath(); ctx.arc(p.x, p.y, (maxMode ? 12 : 8) * f + 1, 0, 7); ctx.fill();
       }
       ctx.globalAlpha = 1;
