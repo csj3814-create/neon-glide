@@ -7,6 +7,13 @@ $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
+# Gradle reads the project from the CURRENT directory, not from where this
+# script lives, so running it from the repository root failed with
+# "does not contain a Gradle build". Work from the wrapper directory and put
+# the caller back where they started.
+Push-Location -LiteralPath $projectRoot
+try {
+
 if (-not (Test-Path -LiteralPath $KeystorePath -PathType Leaf)) {
   throw "Upload keystore not found: $KeystorePath"
 }
@@ -50,3 +57,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Output "signed-aab: $signedBundle"
+
+}
+finally {
+  Pop-Location
+}
