@@ -488,7 +488,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   // ---------- 다국어 ----------
   const I18N = {
     en: { name: 'English',
-      howto: 'Hold to rise, release to dive.<br>A = brake · D = boost · P = pause (mobile: 2nd finger left = brake, right = boost).<br>🏁 <b>Three runs a day — warm-up, main, climax.</b> Clear one to unlock the next; your daily score is the sum of your best on each. Shave edges, thread lasers and pass on boost to build your ★ chain (3 skill passes = 1 level). At ×10 the tail turns rainbow and 🛡 appears — one crash is survivable, paid for in ★.<br><b>The exact same three courses for everyone in the world today.</b>',
+      howto: 'Hold to rise, release to dive.<br>A = brake · D = boost · P = pause (mobile: 2nd finger left = brake, right = boost).<br>🏁 <b>Three runs a day — warm-up, main, climax.</b> Clear one to unlock the next; your daily score is the sum of your best on each. Shave edges, thread lasers and pass on boost to build your ★ chain (skill pass +2 · star +1 · plain pass −1; 3 points = 1 level). At ×10 the tail turns rainbow and 🛡 appears — one crash is survivable, paid for in ★.<br><b>The exact same three courses for everyone in the world today.</b>',
       todayCourse: "Today's course", dailyCourse: 'daily course', best: "Today's best",
       start: "START TODAY'S RUN", over: 'GAME OVER', share: '📤 Share score', retry: 'Retry',
       copied: 'Score copied — challenge a friend! 📋',
@@ -513,7 +513,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       privacy: 'Privacy', privacyClose: 'Close',
       privacyText: 'No account, no tracking, no ads. The only thing that reaches our server is the name you type when you submit a score, along with that score and the date — it is public on the leaderboard. Your device holds an anonymous ID so that only you can improve your own entry, plus your settings and best scores, all in local storage. Clear your browser data and all of it is gone.' },
     ko: { name: '한국어',
-      howto: '누르고 있으면 상승, 떼면 하강.<br>A=감속 · D=가속 · P=일시정지 (모바일: 두 번째 손가락 왼쪽=감속·오른쪽=가속).<br>🏁 <b>하루에 세 코스 — 워밍업·본편·클라이맥스.</b> 하나를 완주하면 다음이 열리고, 오늘 점수는 세 코스 최고점의 합입니다. 가장자리를 스치듯 지나고, 레이저를 뚫고, 부스트로 통과하면 ★ 체인이 쌓입니다 (실력 플레이 3번에 한 단계). ×10이 되면 꼬리가 무지개가 되고 🛡 표시가 등니다 — 한 번은 ★를 치르고 살아납니다.<br><b>오늘은 전 세계가 똑같은 세 코스를 달립니다.</b>',
+      howto: '누르고 있으면 상승, 떼면 하강.<br>A=감속 · D=가속 · P=일시정지 (모바일: 두 번째 손가락 왼쪽=감속·오른쪽=가속).<br>🏁 <b>하루에 세 코스 — 워밍업·본편·클라이맥스.</b> 하나를 완주하면 다음이 열리고, 오늘 점수는 세 코스 최고점의 합입니다. 가장자리를 스치듯 지나고, 레이저를 뚫고, 부스트로 통과하면 ★ 체인이 쌓입니다 (실력 플레이 +2 · 별 +1 · 밋밋한 통과 −1, 3점마다 한 단계). ×10이 되면 꼬리가 무지개가 되고 🛡 표시가 등니다 — 한 번은 ★를 치르고 살아납니다.<br><b>오늘은 전 세계가 똑같은 세 코스를 달립니다.</b>',
       todayCourse: '오늘의 코스', dailyCourse: '데일리 코스', best: '오늘의 최고 기록',
       start: '오늘의 코스 시작', over: 'GAME OVER', share: '📤 점수 공유하기', retry: '다시 도전',
       copied: '점수가 복사됐어요 — 친구에게 도전장을! 📋',
@@ -731,7 +731,10 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   const SC_GATE = 6, SC_STAR = 20, SC_CLOSE = 14, SC_THREAD = 30, SC_BOOST = 10;
   // 체인은 실력 플레이 3번에 ★ 한 단계. 밋밋하게 지나가면 1씩 깎이므로
   // 절반 넘게 붙어서 달려야 배율이 오른다 — 안전 운전만으로는 ×10에 닿지 않는다.
-  const CHAIN_PER_LEVEL = 3, CHAIN_PENALTY = 1;
+  // 실력 +2 · 별 +1 · 밋밋한 통과 −1, 3점마다 한 단계.
+  // 예전엔 실력도 +1이라 깎이는 쪽과 1:1이었다. 게이트 절반을 아슬아슬하게 붙어도
+  // 체인이 제자리였고, ×10에 필요한 27점은 사실상 닿을 수 없는 숫자였다.
+  const CHAIN_PER_LEVEL = 3, CHAIN_PENALTY = 1, CHAIN_SKILL = 2;
   function multOf(c) { return 1 + Math.min(9, (c / CHAIN_PER_LEVEL) | 0); }
   let chain = 0;                           // 연속 실력 플레이 카운터 (= 배율의 원천)
   // ×10에 올라서면 잠깐은 무지개를 붙잡아 둔다. 예전엔 체인 27에서 ×10이 켜지고
@@ -782,7 +785,9 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   function updateHud() {
     document.getElementById('score-live').textContent = score;
     const badge = document.getElementById('mult-badge');
-    badge.textContent = mult > 1 ? (mult >= 10 ? '🛡 ×' + mult : '×' + mult) : '';
+    const dots = '•'.repeat(chain % CHAIN_PER_LEVEL);
+    badge.textContent = mult >= 10 ? '🛡 ×' + mult
+      : (mult > 1 ? '×' + mult + (dots ? ' ' + dots : '') : dots);
     badge.classList.toggle('fever', mult >= 5);
     badge.classList.toggle('max', mult >= 10);
     document.getElementById('gate-badge').textContent =
@@ -1691,7 +1696,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         if (speedF > 1.25) { gain += SC_BOOST * mult; skill = true; label = label ? label + '+BOOST' : 'BOOST'; }
         score += gain;
         if (skill) {
-          chain++;
+          chain += CHAIN_SKILL;
           cleanGates++;
           popup(px + 24, player.y - 46, label + ' +' + gain, '#ff2df7');
         } else {
