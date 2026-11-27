@@ -24,7 +24,7 @@ def twaManifest = [
     applicationId: 'io.github.csj3814_create.neonglide',
     hostName: 'neon.habitschool.kr', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
-    name: 'NEON GLIDE — Daily Challenge', // The application name.
+    name: 'NEON GLIDE ??Daily Challenge', // The application name.
     launcherName: 'NEON GLIDE', // The name shown on the Android Launcher.
     themeColor: '#05010F', // The color used for the status bar.
     themeColorDark: '#05010F', // The color used for the dark status bar.
@@ -46,7 +46,7 @@ def twaManifest = [
     // The fallback strategy for when Trusted Web Activity is not available. Possible values are
     // 'customtabs' and 'webview'.
     fallbackType: 'customtabs',
-    enableSiteSettingsShortcut: 'false',
+    enableSiteSettingsShortcut: 'true',
     orientation: 'landscape',
 ]
 

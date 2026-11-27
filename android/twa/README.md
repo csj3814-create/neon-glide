@@ -43,6 +43,36 @@ Bump `appVersionCode` (and `appVersionName`) in `twa-manifest.json` before every
 upload, then run `npx bubblewrap update --skipVersionUpgrade` and re-run
 `npm run verify:target-sdk`.
 
+`--skipVersionUpgrade` carries the old `versionName` into `app/build.gradle`, so
+check that line against `twa-manifest.json` after every update and correct it by
+hand if they disagree. Write the file without a BOM — Gradle refuses to parse one
+("Unexpected character" on line 1), which `Set-Content -Encoding utf8` adds.
+
+`enableSiteSettingsShortcut` must stay `true`. With it `false`, Bubblewrap leaves
+`ManageDataLauncherActivity` out of the manifest, but
+`androidbrowserhelper:2.7.4` still calls `setComponentEnabledSetting` on it from
+`LauncherActivity.onCreate`, and the app dies on every launch with
+`IllegalArgumentException: Component class ... does not exist`.
+
+## Testing a build before it goes to Play
+
+A Play upload burns a version code, so try the release APK on the local
+emulator first:
+
+```powershell
+.\gradlew.bat assembleRelease
+$sdk = "$env:LOCALAPPDATA\Android\Sdk"
+$apksigner = (Get-ChildItem "$sdk\build-tools\*\apksigner.bat" | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+Copy-Item app\build\outputs\apk\release\app-release-unsigned.apk "$env:TEMP\neon-test.apk" -Force
+& $apksigner sign --ks "$env:USERPROFILE\.android\debug.keystore" --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android "$env:TEMP\neon-test.apk"
+& "$sdk\emulator\emulator.exe" -avd Medium_Phone_API_36.1
+& "$sdk\platform-tools\adb.exe" install -r "$env:TEMP\neon-test.apk"
+& "$sdk\platform-tools\adb.exe" logcat -b crash
+```
+
+The debug signature means Digital Asset Links cannot verify, so the address bar
+shows on the emulator. That is expected and says nothing about the Play build.
+
 ## Digital Asset Links
 
 `/.well-known/assetlinks.json` in the site repo already lists both the Play App
